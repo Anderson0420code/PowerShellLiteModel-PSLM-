@@ -2,6 +2,8 @@
 
 **Portable Small Language Model** is a USB-first, zero-install local AI control environment. It is designed to keep executable code, downloaded inference engines, and GGUF models on removable media while providing a private local inference server and an optional desktop automation workflow.
 
+Zero-install, air-gapped portable AI assistant and UI Automation click-agent running entirely from a USB drive via native PowerShell and HTML.
+
 PSLM uses PowerShell for hardware detection and process orchestration, a plain HTML control surface for user interaction, a local `llama-server` process for inference, and a restricted automation API for preview and approval-driven desktop actions.
 
 ![PSLM official mark](https://img.shields.io/badge/PSLM-Official%20Mark-1e7e34?style=for-the-badge)
