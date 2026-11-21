@@ -1,0 +1,34 @@
+{
+  "runtimeAssets": [
+    {
+      "profile": "cpu",
+      "name": "llama.cpp CPU release",
+      "officialPage": "https://github.com/ggerganov/llama.cpp/releases",
+      "executable": "llama-server.exe",
+      "destination": "bin_cpu"
+    },
+    {
+      "profile": "cuda",
+      "name": "llama.cpp CUDA release",
+      "officialPage": "https://github.com/ggerganov/llama.cpp/releases",
+      "executable": "llama-server.exe",
+      "destination": "bin_cuda"
+    }
+  ],
+  "models": [
+    {
+      "profile": "cpu",
+      "name": "Configure a 1.5B to 4B Q4_K_M GGUF",
+      "file": "cpu-model.gguf",
+      "officialPage": "https://huggingface.co/models?search=gguf",
+      "quantization": "Q4_K_M"
+    },
+    {
+      "profile": "cuda",
+      "name": "Configure an 8B to 12B Q4_K_M GGUF",
+      "file": "cuda-model.gguf",
+      "officialPage": "https://huggingface.co/models?search=gguf",
+      "quantization": "Q4_K_M"
+    }
+  ]
+}

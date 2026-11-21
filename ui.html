@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cdefs%3E%3Cg id='p'%3E%3Crect x='-6' y='0' width='12' height='14' fill='%233a7d44'/%3E%3Crect x='-4.5' y='14' width='9' height='8' fill='%2352a862'/%3E%3Crect x='-3.5' y='22' width='7' height='22' rx='1' fill='%2377d688'/%3E%3C/g%3E%3C/defs%3E%3Cg transform='translate(0,68) scale(1,-1)'%3E%3Cuse href='%23p' x='116'/%3E%3Cuse href='%23p' x='140'/%3E%3Cuse href='%23p' x='164'/%3E%3Cuse href='%23p' x='188'/%3E%3Cuse href='%23p' x='212'/%3E%3Cuse href='%23p' x='236'/%3E%3Cuse href='%23p' x='260'/%3E%3Cuse href='%23p' x='284'/%3E%3C/g%3E%3Cg transform='translate(0,332)'%3E%3Cuse href='%23p' x='116'/%3E%3Cuse href='%23p' x='140'/%3E%3Cuse href='%23p' x='164'/%3E%3Cuse href='%23p' x='188'/%3E%3Cuse href='%23p' x='212'/%3E%3Cuse href='%23p' x='236'/%3E%3Cuse href='%23p' x='260'/%3E%3Cuse href='%23p' x='284'/%3E%3C/g%3E%3Cg transform='translate(68,0) rotate(90)'%3E%3Cuse href='%23p' x='116'/%3E%3Cuse href='%23p' x='140'/%3E%3Cuse href='%23p' x='164'/%3E%3Cuse href='%23p' x='188'/%3E%3Cuse href='%23p' x='212'/%3E%3Cuse href='%23p' x='236'/%3E%3Cuse href='%23p' x='260'/%3E%3Cuse href='%23p' x='284'/%3E%3C/g%3E%3Cg transform='translate(332,0) rotate(-90)'%3E%3Cuse href='%23p' x='-284'/%3E%3Cuse href='%23p' x='-260'/%3E%3Cuse href='%23p' x='-236'/%3E%3Cuse href='%23p' x='-212'/%3E%3Cuse href='%23p' x='-188'/%3E%3Cuse href='%23p' x='-164'/%3E%3Cuse href='%23p' x='-140'/%3E%3Cuse href='%23p' x='-116'/%3E%3C/g%3E%3Crect x='64' y='64' width='272' height='272' rx='44' fill='%231e7e34'/%3E%3Crect x='80' y='80' width='240' height='240' rx='30' fill='%23101518'/%3E%3Ctext x='200' y='222' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='76' fill='%237ee787'%3EPSLM%3C/text%3E%3C/svg%3E">
+  <title>PSLM Control</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#c9d1d9; --accent:#58a6ff; --good:#3fb950; --warn:#d29922; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:"Microsoft JhengHei",Segoe UI,sans-serif; }
+    header { height:52px; display:flex; align-items:center; gap:12px; padding:0 18px; border-bottom:1px solid var(--line); }
+    .dot { width:12px; height:12px; border-radius:50%; background:var(--warn); box-shadow:0 0 12px var(--warn); }
+    main { display:grid; grid-template-columns:280px 1fr; min-height:calc(100vh - 52px); }
+    aside { border-right:1px solid var(--line); padding:16px; }
+    section { padding:18px; }
+    .card { border:1px solid var(--line); border-radius:8px; background:var(--panel); padding:14px; margin-bottom:12px; }
+    h1,h2,h3 { margin-top:0; }
+    h1 { font-size:16px; margin:0; }
+    h2 { font-size:14px; }
+    button { border:1px solid var(--line); border-radius:6px; background:#21262d; color:var(--text); padding:8px 12px; cursor:pointer; }
+    button.primary { border-color:#1f6feb; background:#1f6feb; color:white; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    input,textarea { width:100%; border:1px solid var(--line); border-radius:6px; background:#0d1117; color:var(--text); padding:9px; }
+    textarea { min-height:220px; resize:vertical; }
+    #status { margin-left:auto; font-size:12px; color:#8b949e; }
+    .badge { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; }
+    .ok { color:var(--good); border-color:var(--good); }
+    .brand-mark { width:36px; height:36px; border:2px solid #1e7e34; border-radius:10px; background:#101518; display:grid; place-items:center; color:#7ee787; font-weight:900; letter-spacing:-1px; box-shadow:inset 0 0 0 5px #161b22; }
+    .brand-card { text-align:center; }
+    .brand-card .brand-mark { width:96px; height:96px; margin:4px auto 10px; border-radius:24px; font-size:23px; border-width:5px; box-shadow:inset 0 0 0 12px #161b22; }
+    .recording { color:#ff7b72; border-color:#ff7b72; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-mark" aria-label="PSLM official mark">PSLM</div>
+    <div class="dot" id="dot"></div>
+    <h1>PSLM Local Agent</h1>
+    <span id="status">離線 · 等待安裝資源</span>
+  </header>
+  <main>
+    <aside>
+      <div class="card brand-card">
+        <div class="brand-mark">PSLM</div>
+        <h2>PSLM Local Agent</h2>
+        <span class="badge">Official Mark</span>
+      </div>
+      <div class="card">
+        <h2>硬體模式</h2>
+        <span class="badge" id="profile">偵測中</span>
+      </div>
+      <div class="card">
+        <h2>安裝狀態</h2>
+        <p>推論引擎：<span id="engine">未安裝</span></p>
+        <p>模型：<span id="model">未安裝</span></p>
+        <button class="primary" id="setup">開啟設定流程</button>
+      </div>
+      <div class="card">
+        <h2>Full Movement Recording</h2>
+        <p>Status: <span class="badge" id="recordStatus">Stopped</span></p>
+        <button class="primary" id="recordStart">Record Full Movements</button>
+        <button id="recordStop" disabled>Stop Recording</button>
+        <p id="recordPath" style="font-size:12px; word-break:break-all;"></p>
+      </div>
+    </aside>
+    <section>
+      <div class="card">
+        <h2>對話</h2>
+        <textarea id="chat" placeholder="本機模型啟動後即可在此操作…"></textarea>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <input id="prompt" placeholder="輸入問題">
+          <button id="send" disabled>送出</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>操作審批</h2>
+        <p>所有滑鼠、鍵盤與快捷鍵動作預設需要人工核准。ESC 可中止目前的自動化流程。</p>
+        <button id="approve" disabled>核准</button>
+        <button id="reject" disabled>拒絕</button>
+        <button id="abort" disabled>終止</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    const engine = document.querySelector('#engine');
+    const model = document.querySelector('#model');
+    const status = document.querySelector('#status');
+    const dot = document.querySelector('#dot');
+    const profile = document.querySelector('#profile');
+    const send = document.querySelector('#send');
+    const recordStart = document.querySelector('#recordStart');
+    const recordStop = document.querySelector('#recordStop');
+    const recordStatus = document.querySelector('#recordStatus');
+    const recordPath = document.querySelector('#recordPath');
+
+    async function setRecording(action) {
+      const response = await fetch('http://127.0.0.1:8091/recording', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action})
+      });
+      const state = await response.json();
+      recordStatus.textContent = state.recording ? 'Recording' : 'Stopped';
+      recordStatus.className = state.recording ? 'badge recording' : 'badge';
+      recordStart.disabled = !!state.recording;
+      recordStop.disabled = !state.recording;
+      recordPath.textContent = state.log || '';
+    }
+    recordStart.addEventListener('click', () => setRecording('start').catch(() => alert('Could not start movement recording.')));
+    recordStop.addEventListener('click', () => setRecording('stop').catch(() => alert('Could not stop movement recording.')));
+
+    async function refreshStatus() {
+      try {
+        const response = await fetch('http://127.0.0.1:8091/status');
+        const state = await response.json();
+        profile.textContent = state.profile === 'cuda' ? 'CUDA / NVIDIA' : '純 CPU';
+        engine.textContent = state.engineInstalled ? '已安裝' : '未安裝';
+        model.textContent = state.modelInstalled ? '已安裝' : '未安裝';
+        engine.className = state.engineInstalled ? 'ok' : '';
+        model.className = state.modelInstalled ? 'ok' : '';
+        recordStatus.textContent = state.recordingMovements ? 'Recording' : 'Stopped';
+        recordStatus.className = state.recordingMovements ? 'badge recording' : 'badge';
+        recordStart.disabled = !!state.recordingMovements;
+        recordStop.disabled = !state.recordingMovements;
+        recordPath.textContent = state.movementLog || '';
+      } catch (_) {}
+    }
+    refreshStatus();
+    setInterval(refreshStatus, 5000);
+
+    document.querySelector('#setup').addEventListener('click', () => {
+      window.open('https://github.com/ggerganov/llama.cpp/releases', '_blank');
+      window.open('https://huggingface.co/models?search=gguf', '_blank');
+      alert('下載後請執行 README 中的 Download-PSLMAssets.ps1 指令，並提供官方檔案 SHA-256。');
+    });
+
+    send.addEventListener('click', async () => {
+      const prompt = document.querySelector('#prompt');
+      if (!prompt.value.trim()) return;
+      const chat = document.querySelector('#chat');
+      chat.value += `\n\n使用者：${prompt.value}`;
+      prompt.disabled = true;
+      try {
+        const response = await fetch('http://127.0.0.1:8091/completion', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({messages:[{role:'user',content:prompt.value}],temperature:0.7})
+        });
+        const result = await response.json();
+        chat.value += `\n\n助理：${result.choices?.[0]?.message?.content || result.error || '無回應'}`;
+      } catch (error) {
+        chat.value += `\n\n助理：連線失敗，請確認 llama-server 已啟動。`;
+      }
+      prompt.disabled = false;
+      prompt.value = '';
+      chat.scrollTop = chat.scrollHeight;
+    });
+
+    fetch('http://127.0.0.1:8080/health').then(async response => {
+      if (!response.ok) throw new Error('server unavailable');
+      dot.style.background = 'var(--good)';
+      dot.style.boxShadow = '0 0 12px var(--good)';
+      status.textContent = '線上 · 本機 8080';
+      send.disabled = false;
+      engine.className = 'ok';
+      engine.textContent = '已安裝';
+      model.className = 'ok';
+      model.textContent = '已載入';
+    }).catch(() => {});
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+/bin_cpu/*
+/bin_cuda/*
+/models/*
+/pslm.log
+/movements.jsonl
+*.gguf
