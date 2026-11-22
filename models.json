@@ -30,5 +30,22 @@
       "officialPage": "https://huggingface.co/models?search=gguf",
       "quantization": "Q4_K_M"
     }
-  ]
+  ],
+  "rag": {
+    "enabled": true,
+    "knowledgeDirectory": "knowledge",
+    "indexFile": "rag/index.json",
+    "chunkCharacters": 900,
+    "chunkOverlap": 120,
+    "maxResults": 5,
+    "extensions": [".txt", ".md", ".csv", ".json", ".log"]
+  },
+  "hardware": {
+    "preferredMode": "hybrid",
+    "npuEnabled": true,
+    "npuRuntime": "Windows ML / DirectML",
+    "embeddingDevice": "npu",
+    "generationDevice": "cuda",
+    "cpuFallback": true
+  }
 }

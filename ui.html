@@ -63,6 +63,13 @@
         <button id="recordStop" disabled>Stop Recording</button>
         <p id="recordPath" style="font-size:12px; word-break:break-all;"></p>
       </div>
+      <div class="card">
+        <h2>Local RAG Knowledge</h2>
+        <p>NPU: <span class="badge" id="npuStatus">Detecting</span></p>
+        <p>Index: <span class="badge" id="ragStatus">Checking</span></p>
+        <button class="primary" id="ragIndex">Index Knowledge Folder</button>
+        <p style="font-size:12px;">Place .txt, .md, .csv, .json, or .log files in <b>knowledge/</b>.</p>
+      </div>
     </aside>
     <section>
       <div class="card">
@@ -93,6 +100,20 @@
     const recordStop = document.querySelector('#recordStop');
     const recordStatus = document.querySelector('#recordStatus');
     const recordPath = document.querySelector('#recordPath');
+    const npuStatus = document.querySelector('#npuStatus');
+    const ragStatus = document.querySelector('#ragStatus');
+    const ragIndex = document.querySelector('#ragIndex');
+
+    ragIndex.addEventListener('click', async () => {
+      ragStatus.textContent = 'Indexing';
+      try {
+        const response = await fetch('http://127.0.0.1:8091/rag/index', {method:'POST'});
+        const state = await response.json();
+        ragStatus.textContent = `${state.indexedChunks || 0} chunks`;
+      } catch (_) {
+        ragStatus.textContent = 'Index failed';
+      }
+    });
 
     async function setRecording(action) {
       const response = await fetch('http://127.0.0.1:8091/recording', {
@@ -124,6 +145,9 @@
         recordStart.disabled = !!state.recordingMovements;
         recordStop.disabled = !state.recordingMovements;
         recordPath.textContent = state.movementLog || '';
+        npuStatus.textContent = state.npuAvailable ? 'Available' : 'Not detected';
+        npuStatus.className = state.npuAvailable ? 'badge ok' : 'badge';
+        ragStatus.textContent = state.ragIndexExists ? 'Ready' : 'Not indexed';
       } catch (_) {}
     }
     refreshStatus();

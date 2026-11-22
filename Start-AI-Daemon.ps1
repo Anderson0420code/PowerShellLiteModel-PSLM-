@@ -8,6 +8,8 @@ $Root = $PSScriptRoot
 $BinCpu = Join-Path $Root 'bin_cpu'
 $BinCuda = Join-Path $Root 'bin_cuda'
 $ModelsDir = Join-Path $Root 'models'
+$KnowledgeDir = Join-Path $Root 'knowledge'
+$RagDir = Join-Path $Root 'rag'
 $UiPath = Join-Path $Root 'ui.html'
 $LogPath = Join-Path $Root 'pslm.log'
 $ConfigPath = Join-Path $Root 'models.json'
@@ -18,7 +20,7 @@ $script:IsRecordingMovements = $false
 $script:LastMovementPoint = $null
 $script:MovementTimer = $null
 
-foreach ($path in @($BinCpu, $BinCuda, $ModelsDir)) {
+foreach ($path in @($BinCpu, $BinCuda, $ModelsDir, $KnowledgeDir, $RagDir)) {
     if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path -Force | Out-Null }
 }
 
@@ -128,10 +130,121 @@ function Test-NvidiaGpu {
 
 function Get-HardwareProfile {
     $gpu = Test-NvidiaGpu
+    $npuDevices = Get-CimInstance -ClassName Win32_PnPEntity -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -match '(NPU|Neural Processing|AI Boost|Versal|Neural Processor|Intel.*AI)'
+        }
+    $npuAvailable = [bool]($npuDevices | Select-Object -First 1)
     [pscustomobject]@{
         HasNvidiaGpu = $gpu
-        Profile = if ($gpu) { 'cuda' } else { 'cpu' }
+        HasNpu = $npuAvailable
+        NpuNames = @($npuDevices | Where-Object Name | Select-Object -ExpandProperty Name -Unique)
+        Profile = if ($gpu) { 'cuda' } elseif ($npuAvailable) { 'npu-hybrid' } else { 'cpu' }
     }
+}
+
+function Get-RagConfig($Config) {
+    if ($Config.rag) { return $Config.rag }
+    [pscustomobject]@{
+        enabled=$true
+        chunkCharacters=900
+        chunkOverlap=120
+        maxResults=5
+        indexFile='rag/index.json'
+        extensions=@('.txt','.md','.csv','.json','.log')
+    }
+}
+
+function ConvertTo-RagChunks([string]$Text, [int]$ChunkSize, [int]$Overlap) {
+    $normalized = ($Text -replace "`r`n?","`n").Trim()
+    if (-not $normalized) { return @() }
+    $chunks = New-Object System.Collections.Generic.List[object]
+    $start = 0
+    $id = 0
+    while ($start -lt $normalized.Length) {
+        $length = [Math]::Min($ChunkSize, $normalized.Length - $start)
+        $chunkText = $normalized.Substring($start, $length).Trim()
+        if ($chunkText) {
+            $chunks.Add([pscustomobject]@{id=$id;text=$chunkText})
+            $id++
+        }
+        $next = $start + $ChunkSize - $Overlap
+        if ($next -le $start) { break }
+        $start = $next
+    }
+    return $chunks.ToArray()
+}
+
+function Update-RagIndex($Config) {
+    $rag = Get-RagConfig $Config
+    $extensions = @($rag.extensions)
+    $documents = New-Object System.Collections.Generic.List[object]
+    $chunkSize = [Math]::Max(200,[int]$rag.chunkCharacters)
+    $overlap = [Math]::Min([int]$rag.chunkOverlap,[Math]::Max(0,$chunkSize - 1))
+
+    Get-ChildItem -LiteralPath $KnowledgeDir -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension.ToLowerInvariant() -in $extensions } |
+        ForEach-Object {
+            try {
+                $text = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8
+                $relative = $_.FullName.Substring($KnowledgeDir.Length).TrimStart('\','/')
+                foreach ($chunk in (ConvertTo-RagChunks $text $chunkSize $overlap)) {
+                    $documents.Add([pscustomobject]@{
+                        file=$relative
+                        chunk=$chunk.id
+                        text=$chunk.text
+                    })
+                }
+            } catch {
+                Write-PslmLog ('RAG index skipped ' + $_.FullName + ': ' + $_.Exception.Message)
+            }
+        }
+
+    $indexPath = Join-Path $Root ([string]$rag.indexFile)
+    New-Item -ItemType Directory -Path (Split-Path $indexPath -Parent) -Force | Out-Null
+    [ordered]@{
+        generatedAt=(Get-Date).ToUniversalTime().ToString('o')
+        documentCount=$documents.Count
+        chunks=@($documents.ToArray())
+    } | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath $indexPath -Encoding UTF8
+    return $documents.Count
+}
+
+function Search-RagIndex($Config, [string]$Query, [int]$Limit) {
+    $rag = Get-RagConfig $Config
+    $indexPath = Join-Path $Root ([string]$rag.indexFile)
+    if (-not (Test-Path -LiteralPath $indexPath -PathType Leaf)) { return @() }
+    $index = Get-Content -LiteralPath $indexPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $queryTerms = ([regex]::Matches($Query.ToLowerInvariant(), '[\p{L}\p{N}_]+') | ForEach-Object Value |
+        Where-Object { $_.Length -ge 2 } | Select-Object -Unique)
+    if (-not $queryTerms -or -not $index.chunks) { return @() }
+
+    $count = @($index.chunks).Count
+    $docLengths = @($index.chunks | ForEach-Object { ([regex]::Matches($_.text.ToLowerInvariant(), '[\p{L}\p{N}_]+')).Count })
+    $averageLength = if ($count) { ([double](($docLengths | Measure-Object -Sum).Sum)) / $count } else { 1 }
+    $ranked = New-Object System.Collections.Generic.List[object]
+    foreach ($chunk in $index.chunks) {
+        $lower = $chunk.text.ToLowerInvariant()
+        $length = ([regex]::Matches($lower, '[\p{L}\p{N}_]+')).Count
+        $score = 0.0
+        foreach ($term in $queryTerms) {
+            $frequency = ([regex]::Matches($lower, [regex]::Escape($term))).Count
+            if ($frequency -gt 0) {
+                $idf = [Math]::Log((($count + 1.0) / 1.0) + 1.0)
+                $normalized = $frequency * 2.2 / ($frequency + 1.2 * (0.25 + 0.75 * $length / [Math]::Max($averageLength,1.0)))
+                $score += $idf * $normalized
+            }
+        }
+        if ($score -gt 0) {
+            $ranked.Add([pscustomobject]@{
+                score=[Math]::Round($score,6)
+                file=$chunk.file
+                chunk=$chunk.chunk
+                text=$chunk.text
+            })
+        }
+    }
+    return @($ranked | Sort-Object score -Descending | Select-Object -First $Limit)
 }
 
 function Get-Config {
@@ -294,6 +407,15 @@ $hardware = Get-HardwareProfile
 $engineInstalled = Test-InstalledEngine $hardware.Profile
 $modelInstalled = Test-SelectedModel $config $hardware.Profile
 
+if ($config.rag.enabled) {
+    try {
+        $ragChunkCount = Update-RagIndex $config
+        Write-PslmLog ('RAG index ready: ' + $ragChunkCount + ' chunks')
+    } catch {
+        Write-PslmLog ('RAG index failed: ' + $_.Exception.Message)
+    }
+}
+
 if ($engineInstalled -and $modelInstalled) {
     [void](Start-LocalServer $config $hardware.Profile)
 }
@@ -334,7 +456,21 @@ try {
                     emergencyEsc=Test-EscapeHeld
                     recordingMovements=$script:IsRecordingMovements
                     movementLog=$MovementLogPath
+                    npuAvailable=$hardware.HasNpu
+                    npuNames=@($hardware.NpuNames)
+                    ragEnabled=$([bool]$config.rag.enabled)
+                    ragIndexExists=(Test-Path -LiteralPath (Join-Path $Root ([string]$config.rag.indexFile)) -PathType Leaf)
                 })
+            } elseif ($path -eq '/rag/index' -and $request.HttpMethod -eq 'POST') {
+                $count = Update-RagIndex $config
+                Send-JsonResponse $context 200 ([ordered]@{indexedChunks=$count;knowledgeDirectory=$KnowledgeDir})
+            } elseif ($path -eq '/rag/search' -and $request.HttpMethod -eq 'POST') {
+                $reader = New-Object IO.StreamReader($request.InputStream, $request.ContentEncoding)
+                $body = $reader.ReadToEnd() | ConvertFrom-Json
+                $reader.Dispose()
+                $limit = [Math]::Min([Math]::Max([int]$body.limit,1),20)
+                $results = Search-RagIndex $config ([string]$body.query) $limit
+                Send-JsonResponse $context 200 ([ordered]@{results=@($results)})
             } elseif ($path -eq '/recording' -and $request.HttpMethod -eq 'POST') {
                 $reader = New-Object IO.StreamReader($request.InputStream, $request.ContentEncoding)
                 $body = $reader.ReadToEnd() | ConvertFrom-Json
@@ -369,7 +505,26 @@ try {
                 $reader = New-Object IO.StreamReader($request.InputStream, $request.ContentEncoding)
                 $body = $reader.ReadToEnd()
                 $reader.Dispose()
-                $completion = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/v1/chat/completions' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 120
+                $completionPayload = $body | ConvertFrom-Json
+                if ($config.rag.enabled -and $completionPayload.messages) {
+                    $lastUser = @($completionPayload.messages | Where-Object { $_.role -eq 'user' } | Select-Object -Last 1)
+                    if ($lastUser.Count -gt 0) {
+                        $ragResults = Search-RagIndex $config ([string]$lastUser[0].content) ([int]$config.rag.maxResults)
+                        if ($ragResults.Count -gt 0) {
+                            $contextText = ($ragResults | ForEach-Object { "Source: $($_.file)#$($_.chunk)`n$($_.text)" }) -join "`n`n"
+                            $systemMessage = [pscustomobject]@{
+                                role='system'
+                                content='Use the following local knowledge base context only as supporting evidence. Cite source file and chunk numbers. If context is insufficient, say so explicitly.' + "`n`n" + $contextText
+                            }
+                            $messages = New-Object System.Collections.Generic.List[object]
+                            $messages.Add($systemMessage)
+                            foreach ($message in $completionPayload.messages) { $messages.Add($message) }
+                            $completionPayload.messages = $messages.ToArray()
+                        }
+                    }
+                }
+                $completionBody = $completionPayload | ConvertTo-Json -Depth 12 -Compress
+                $completion = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/v1/chat/completions' -Method Post -ContentType 'application/json' -Body $completionBody -TimeoutSec 120
                 Send-JsonResponse $context 200 $completion
             } else {
                 Send-JsonResponse $context 404 ([ordered]@{error='Not found'})

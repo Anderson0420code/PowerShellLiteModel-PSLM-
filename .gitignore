@@ -3,4 +3,6 @@
 /models/*
 /pslm.log
 /movements.jsonl
+/rag/*
+/knowledge/*
 *.gguf
