@@ -544,7 +544,30 @@ if ($engineInstalled -and $modelInstalled) {
 }
 
 $uiUrl = 'file://' + ($UiPath -replace '\\','/')
-Start-Process $uiUrl
+function Start-PslmAppWindow([string]$Url) {
+    $browserCandidates = @(
+        "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+        "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "${env:LocalAppData}\Google\Chrome\Application\chrome.exe"
+    )
+    $browser = $browserCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+    if (-not $browser) {
+        Write-PslmLog 'No Edge or Chrome executable found; opened the default browser instead'
+        Start-Process $Url
+        return
+    }
+    $arguments = @(
+        "--app=$Url",
+        '--lang=zh-TW',
+        '--window-size=1280,800',
+        '--disable-background-mode',
+        '--new-window'
+    )
+    Start-Process -FilePath $browser -ArgumentList $arguments
+    Write-PslmLog ('PSLM UI opened in app mode using ' + $browser)
+}
+Start-PslmAppWindow $uiUrl
 
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add(('http://127.0.0.1:{0}/' -f $ApiPort))

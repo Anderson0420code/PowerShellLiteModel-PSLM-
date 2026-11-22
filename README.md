@@ -53,6 +53,9 @@ CPU mode requires a CPU-compatible engine and a model such as a 1.5B–4B Q4_K_M
 
 1. Copy the complete PSLM source directory to a USB drive.
 2. Double-click `Run.bat`.
+   - When Microsoft Edge or Google Chrome is installed, PSLM opens `ui.html` in Chromium app mode.
+   - The app window requests Traditional Chinese (`zh-TW`) and uses a compact 1280x800 window.
+   - If no supported Chromium browser is installed, the page opens in the Windows default browser.
 3. The daemon creates `bin_cpu`, `bin_cuda`, and `models` if they do not exist.
 4. Place an official CPU or CUDA `llama-server.exe` build in the matching directory.
 5. Place a compatible GGUF model in `models` using the configured filename:

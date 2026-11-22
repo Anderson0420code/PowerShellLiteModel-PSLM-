@@ -2,9 +2,10 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="content-language" content="zh-TW">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cdefs%3E%3Cg id='p'%3E%3Crect x='-6' y='0' width='12' height='14' fill='%233a7d44'/%3E%3Crect x='-4.5' y='14' width='9' height='8' fill='%2352a862'/%3E%3Crect x='-3.5' y='22' width='7' height='22' rx='1' fill='%2377d688'/%3E%3C/g%3E%3C/defs%3E%3Cg transform='translate(0,68) scale(1,-1)'%3E%3Cuse href='%23p' x='116'/%3E%3Cuse href='%23p' x='140'/%3E%3Cuse href='%23p' x='164'/%3E%3Cuse href='%23p' x='188'/%3E%3Cuse href='%23p' x='212'/%3E%3Cuse href='%23p' x='236'/%3E%3Cuse href='%23p' x='260'/%3E%3Cuse href='%23p' x='284'/%3E%3C/g%3E%3Cg transform='translate(0,332)'%3E%3Cuse href='%23p' x='116'/%3E%3Cuse href='%23p' x='140'/%3E%3Cuse href='%23p' x='164'/%3E%3Cuse href='%23p' x='188'/%3E%3Cuse href='%23p' x='212'/%3E%3Cuse href='%23p' x='236'/%3E%3Cuse href='%23p' x='260'/%3E%3Cuse href='%23p' x='284'/%3E%3C/g%3E%3Cg transform='translate(68,0) rotate(90)'%3E%3Cuse href='%23p' x='116'/%3E%3Cuse href='%23p' x='140'/%3E%3Cuse href='%23p' x='164'/%3E%3Cuse href='%23p' x='188'/%3E%3Cuse href='%23p' x='212'/%3E%3Cuse href='%23p' x='236'/%3E%3Cuse href='%23p' x='260'/%3E%3Cuse href='%23p' x='284'/%3E%3C/g%3E%3Cg transform='translate(332,0) rotate(-90)'%3E%3Cuse href='%23p' x='-284'/%3E%3Cuse href='%23p' x='-260'/%3E%3Cuse href='%23p' x='-236'/%3E%3Cuse href='%23p' x='-212'/%3E%3Cuse href='%23p' x='-188'/%3E%3Cuse href='%23p' x='-164'/%3E%3Cuse href='%23p' x='-140'/%3E%3Cuse href='%23p' x='-116'/%3E%3C/g%3E%3Crect x='64' y='64' width='272' height='272' rx='44' fill='%231e7e34'/%3E%3Crect x='80' y='80' width='240' height='240' rx='30' fill='%23101518'/%3E%3Ctext x='200' y='222' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='76' fill='%237ee787'%3EPSLM%3C/text%3E%3C/svg%3E">
-  <title>PSLM Control</title>
+  <title>PSLM 控制台</title>
   <style>
     :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#c9d1d9; --accent:#58a6ff; --good:#3fb950; --warn:#d29922; }
     * { box-sizing:border-box; }
@@ -39,15 +40,15 @@
   <header>
     <div class="brand-mark" aria-label="PSLM official mark">PSLM</div>
     <div class="dot" id="dot"></div>
-    <h1>PSLM Local Agent</h1>
+    <h1>PSLM 本機助理</h1>
     <span id="status">離線 · 等待安裝資源</span>
   </header>
   <main>
     <aside>
       <div class="card brand-card">
         <div class="brand-mark">PSLM</div>
-        <h2>PSLM Local Agent</h2>
-        <span class="badge">Official Mark</span>
+        <h2>PSLM 本機助理</h2>
+        <span class="badge">官方標誌</span>
       </div>
       <div class="card">
         <h2>硬體模式</h2>
@@ -60,29 +61,29 @@
         <button class="primary" id="setup">開啟設定流程</button>
       </div>
       <div class="card">
-        <h2>Full Movement Recording</h2>
-        <p>Status: <span class="badge" id="recordStatus">Stopped</span></p>
-        <button class="primary" id="recordStart">Record Full Movements</button>
-        <button id="recordStop" disabled>Stop Recording</button>
+        <h2>完整動作錄製</h2>
+        <p>狀態：<span class="badge" id="recordStatus">已停止</span></p>
+        <button class="primary" id="recordStart">開始錄製完整動作</button>
+        <button id="recordStop" disabled>停止錄製</button>
         <p id="recordPath" style="font-size:12px; word-break:break-all;"></p>
       </div>
       <div class="card">
-        <h2>Local RAG Knowledge</h2>
-        <p>NPU: <span class="badge" id="npuStatus">Detecting</span></p>
-        <p>Index: <span class="badge" id="ragStatus">Checking</span></p>
-        <button class="primary" id="ragIndex">Index Knowledge Folder</button>
-        <p style="font-size:12px;">Place .txt, .md, .csv, .json, or .log files in <b>knowledge/</b>.</p>
+        <h2>本機 RAG 知識庫</h2>
+        <p>NPU：<span class="badge" id="npuStatus">偵測中</span></p>
+        <p>索引：<span class="badge" id="ragStatus">檢查中</span></p>
+        <button class="primary" id="ragIndex">建立知識資料夾索引</button>
+        <p style="font-size:12px;">請將 .txt、.md、.csv、.json 或 .log 檔案放入 <b>knowledge/</b>。</p>
       </div>
     </aside>
     <section>
       <div class="card">
-        <h2>Terminal Prompt</h2>
-        <div id="terminalOutput">PSLM&gt; help</div>
+        <h2>終端提示</h2>
+        <div id="terminalOutput">PSLM&gt; help（輸入 help 查看指令）</div>
         <div class="terminal-row">
-          <input id="terminalPrompt" placeholder="Enter an allowlisted command">
-          <button class="primary" id="terminalRun">Run</button>
+          <input id="terminalPrompt" placeholder="輸入允許的指令">
+          <button class="primary" id="terminalRun">執行</button>
         </div>
-        <p style="font-size:12px;">Read-only commands execute directly. Git add, commit, and push require approval. Shell operators, arbitrary executables, and paths outside PSLM are blocked.</p>
+        <p style="font-size:12px;">唯讀指令可直接執行；Git 新增、提交與推送需要核准。Shell 運算子、任意執行檔及專案外路徑均會被封鎖。</p>
       </div>
       <div class="card">
         <h2>對話</h2>
@@ -132,7 +133,7 @@
         const state = await response.json();
         terminalOutput.textContent += `[${state.decision || 'executed'}]\n${state.output || state.error || ''}`;
       } catch (_) {
-        terminalOutput.textContent += '[error]\nTerminal service unavailable.';
+        terminalOutput.textContent += '[錯誤]\n終端服務目前無法使用。';
       }
       terminalPrompt.value = '';
       terminalRun.disabled = false;
@@ -146,13 +147,13 @@
     });
 
     ragIndex.addEventListener('click', async () => {
-      ragStatus.textContent = 'Indexing';
+      ragStatus.textContent = '建立索引中';
       try {
         const response = await fetch('http://127.0.0.1:8091/rag/index', {method:'POST'});
         const state = await response.json();
-        ragStatus.textContent = `${state.indexedChunks || 0} chunks`;
+        ragStatus.textContent = `${state.indexedChunks || 0} 個區塊`;
       } catch (_) {
-        ragStatus.textContent = 'Index failed';
+        ragStatus.textContent = '建立索引失敗';
       }
     });
 
@@ -163,32 +164,32 @@
         body:JSON.stringify({action})
       });
       const state = await response.json();
-      recordStatus.textContent = state.recording ? 'Recording' : 'Stopped';
+      recordStatus.textContent = state.recording ? '錄製中' : '已停止';
       recordStatus.className = state.recording ? 'badge recording' : 'badge';
       recordStart.disabled = !!state.recording;
       recordStop.disabled = !state.recording;
       recordPath.textContent = state.log || '';
     }
-    recordStart.addEventListener('click', () => setRecording('start').catch(() => alert('Could not start movement recording.')));
-    recordStop.addEventListener('click', () => setRecording('stop').catch(() => alert('Could not stop movement recording.')));
+    recordStart.addEventListener('click', () => setRecording('start').catch(() => alert('無法開始動作錄製。')));
+    recordStop.addEventListener('click', () => setRecording('stop').catch(() => alert('無法停止動作錄製。')));
 
     async function refreshStatus() {
       try {
         const response = await fetch('http://127.0.0.1:8091/status');
         const state = await response.json();
-        profile.textContent = state.profile === 'cuda' ? 'CUDA / NVIDIA' : '純 CPU';
+        profile.textContent = state.profile === 'cuda' ? 'CUDA / NVIDIA' : (state.profile === 'npu-hybrid' ? 'NPU 混合運算' : '純 CPU');
         engine.textContent = state.engineInstalled ? '已安裝' : '未安裝';
         model.textContent = state.modelInstalled ? '已安裝' : '未安裝';
         engine.className = state.engineInstalled ? 'ok' : '';
         model.className = state.modelInstalled ? 'ok' : '';
-        recordStatus.textContent = state.recordingMovements ? 'Recording' : 'Stopped';
+        recordStatus.textContent = state.recordingMovements ? '錄製中' : '已停止';
         recordStatus.className = state.recordingMovements ? 'badge recording' : 'badge';
         recordStart.disabled = !!state.recordingMovements;
         recordStop.disabled = !state.recordingMovements;
         recordPath.textContent = state.movementLog || '';
-        npuStatus.textContent = state.npuAvailable ? 'Available' : 'Not detected';
+        npuStatus.textContent = state.npuAvailable ? '可用' : '未偵測到';
         npuStatus.className = state.npuAvailable ? 'badge ok' : 'badge';
-        ragStatus.textContent = state.ragIndexExists ? 'Ready' : 'Not indexed';
+        ragStatus.textContent = state.ragIndexExists ? '已就緒' : '尚未建立索引';
       } catch (_) {}
     }
     refreshStatus();
