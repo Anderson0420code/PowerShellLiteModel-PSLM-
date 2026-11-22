@@ -16,6 +16,7 @@ $ConfigPath = Join-Path $Root 'models.json'
 $ApiPort = 8091
 $InferenceProcess = $null
 $MovementLogPath = Join-Path $Root 'movements.jsonl'
+$TerminalLogPath = Join-Path $Root 'terminal.jsonl'
 $script:IsRecordingMovements = $false
 $script:LastMovementPoint = $null
 $script:MovementTimer = $null
@@ -358,6 +359,128 @@ function Send-JsonResponse($Context, [int]$StatusCode, $Payload) {
     $Context.Response.Close()
 }
 
+function Resolve-TerminalPath([string]$RelativePath) {
+    if ([string]::IsNullOrWhiteSpace($RelativePath)) { return $Root }
+    $candidate = [System.IO.Path]::GetFullPath((Join-Path $Root $RelativePath.Trim('"',' ','.')))
+    $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd('\')
+    if ($candidate -ne $rootFull -and -not $candidate.StartsWith($rootFull + '\',[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Terminal paths must remain inside the PSLM USB directory.'
+    }
+    return $candidate
+}
+
+function Write-TerminalLog([string]$Command, [string]$Output, [string]$Decision) {
+    $record = [ordered]@{
+        timestamp=(Get-Date).ToUniversalTime().ToString('o')
+        command=$Command
+        decision=$Decision
+        output=$Output
+    }
+    Add-Content -LiteralPath $TerminalLogPath -Value ($record | ConvertTo-Json -Depth 5 -Compress) -Encoding UTF8
+}
+
+function Invoke-ReadOnlyTerminalCommand([string]$Command) {
+    $trimmed = $Command.Trim()
+    if ($trimmed -match '[;|&<>`]' -or $trimmed -match '\$\(') {
+        throw 'Shell operators and command expansion are not permitted.'
+    }
+    if ($trimmed.Length -gt 2000) { throw 'Command is too long.' }
+
+    if ($trimmed -in @('help','?')) {
+        return @(
+            'pwd / Get-Location'
+            'ls [path] / dir [path] / Get-ChildItem [path]'
+            'cat <path> / type <path> / Get-Content <path>'
+            'git status'
+            'git log'
+            'git diff'
+            'git add .'
+            'git commit -m "<message>"'
+            'git push'
+            'history'
+        ) -join "`n"
+    }
+    if ($trimmed -in @('history')) {
+        if (-not (Test-Path -LiteralPath $TerminalLogPath -PathType Leaf)) { return 'No terminal history.' }
+        return Get-Content -LiteralPath $TerminalLogPath -Tail 30 -Raw
+    }
+    if ($trimmed -in @('pwd','Get-Location')) { return $Root }
+
+    if ($trimmed -match '^(ls|dir|Get-ChildItem)(?:\s+(.+))?$') {
+        $relative = [string]$Matches[2]
+        $path = Resolve-TerminalPath $relative
+        if (-not (Test-Path -LiteralPath $path)) { throw "Path not found: $relative" }
+        return Get-ChildItem -LiteralPath $path -Force | ForEach-Object {
+            '{0}`t{1}`t{2:N0}' -f $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm'), $_.Name, $_.Length
+        } | Out-String
+    }
+
+    if ($trimmed -match '^(cat|type|Get-Content)\s+(.+)$') {
+        $path = Resolve-TerminalPath ([string]$Matches[2])
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'File not found.' }
+        return Get-Content -LiteralPath $path -Raw
+    }
+
+    if ($trimmed -eq 'git status') {
+        $result = & git -C $Root --no-pager status --short --branch 2>&1
+        return ($result | Out-String)
+    }
+    if ($trimmed -eq 'git log') {
+        $result = & git -C $Root --no-pager log --oneline --decorate -10 2>&1
+        return ($result | Out-String)
+    }
+    if ($trimmed -eq 'git diff') {
+        $result = & git -C $Root --no-pager diff --stat; $result += & git -C $Root --no-pager diff --check
+        return ($result | Out-String)
+    }
+
+    throw 'Command is not in the read-only terminal allowlist. Use help to list commands.'
+}
+
+function Invoke-TerminalPrompt([string]$Command) {
+    $trimmed = $Command.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) { throw 'A command is required.' }
+
+    $mutatingGit = $trimmed -match '^git (add \. |commit -m |commit -m$|push$)'
+    $mutatingGit = $mutatingGit -and (
+        $trimmed -eq 'git add .' -or
+        $trimmed -match '^git commit -m "([^"]{1,200})"$' -or
+        $trimmed -eq 'git push'
+    )
+
+    if (-not $mutatingGit) {
+        $output = Invoke-ReadOnlyTerminalCommand $trimmed
+        Write-TerminalLog $trimmed $output 'executed'
+        return [pscustomobject]@{
+            decision='executed'
+            output=$output
+            log=$TerminalLogPath
+        }
+    }
+
+    $decision = Show-HumanApproval ('Terminal command: ' + $trimmed) 200 200
+    if ($decision -ne 'approve') {
+        Write-TerminalLog $trimmed '' $decision
+        return [pscustomobject]@{decision=$decision;output='';log=$TerminalLogPath}
+    }
+    if (Test-EscapeHeld) {
+        Write-TerminalLog $trimmed '' 'abort'
+        return [pscustomobject]@{decision='abort';output='';log=$TerminalLogPath}
+    }
+
+    $result = if ($trimmed -eq 'git add .') {
+        & git -C $Root add --all 2>&1
+    } elseif ($trimmed -eq 'git push') {
+        & git -C $Root push origin main 2>&1
+    } elseif ($trimmed -match '^git commit -m "([^"]{1,200})"$') {
+        $message = [string]$Matches[1]
+        & git -C $Root -c user.name='Anderson0420code' -c user.email='223556219+Copilot@users.noreply.github.com' commit -m $message 2>&1
+    }
+    $output = ($result | Out-String)
+    Write-TerminalLog $trimmed $output 'executed'
+    return [pscustomobject]@{decision='executed';output=$output;log=$TerminalLogPath}
+}
+
 function Start-MovementRecording {
     $script:LastMovementPoint = $null
     $script:IsRecordingMovements = $true
@@ -460,6 +583,7 @@ try {
                     npuNames=@($hardware.NpuNames)
                     ragEnabled=$([bool]$config.rag.enabled)
                     ragIndexExists=(Test-Path -LiteralPath (Join-Path $Root ([string]$config.rag.indexFile)) -PathType Leaf)
+                    terminalLog=$TerminalLogPath
                 })
             } elseif ($path -eq '/rag/index' -and $request.HttpMethod -eq 'POST') {
                 $count = Update-RagIndex $config
@@ -471,6 +595,12 @@ try {
                 $limit = [Math]::Min([Math]::Max([int]$body.limit,1),20)
                 $results = Search-RagIndex $config ([string]$body.query) $limit
                 Send-JsonResponse $context 200 ([ordered]@{results=@($results)})
+            } elseif ($path -eq '/terminal' -and $request.HttpMethod -eq 'POST') {
+                $reader = New-Object IO.StreamReader($request.InputStream, $request.ContentEncoding)
+                $body = $reader.ReadToEnd() | ConvertFrom-Json
+                $reader.Dispose()
+                $result = Invoke-TerminalPrompt ([string]$body.command)
+                Send-JsonResponse $context 200 $result
             } elseif ($path -eq '/recording' -and $request.HttpMethod -eq 'POST') {
                 $reader = New-Object IO.StreamReader($request.InputStream, $request.ContentEncoding)
                 $body = $reader.ReadToEnd() | ConvertFrom-Json

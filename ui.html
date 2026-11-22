@@ -30,6 +30,9 @@
     .brand-card { text-align:center; }
     .brand-card .brand-mark { width:96px; height:96px; margin:4px auto 10px; border-radius:24px; font-size:23px; border-width:5px; box-shadow:inset 0 0 0 12px #161b22; }
     .recording { color:#ff7b72; border-color:#ff7b72; }
+    #terminalOutput { min-height:210px; max-height:360px; overflow:auto; white-space:pre-wrap; background:#080b10; color:#a7f3d0; border:1px solid var(--line); border-radius:6px; padding:12px; font-family:Consolas,Monaco,monospace; }
+    .terminal-row { display:flex; gap:8px; margin-top:10px; }
+    .terminal-row input { font-family:Consolas,Monaco,monospace; }
   </style>
 </head>
 <body>
@@ -73,6 +76,15 @@
     </aside>
     <section>
       <div class="card">
+        <h2>Terminal Prompt</h2>
+        <div id="terminalOutput">PSLM&gt; help</div>
+        <div class="terminal-row">
+          <input id="terminalPrompt" placeholder="Enter an allowlisted command">
+          <button class="primary" id="terminalRun">Run</button>
+        </div>
+        <p style="font-size:12px;">Read-only commands execute directly. Git add, commit, and push require approval. Shell operators, arbitrary executables, and paths outside PSLM are blocked.</p>
+      </div>
+      <div class="card">
         <h2>對話</h2>
         <textarea id="chat" placeholder="本機模型啟動後即可在此操作…"></textarea>
         <div style="margin-top:10px; display:flex; gap:8px;">
@@ -103,6 +115,35 @@
     const npuStatus = document.querySelector('#npuStatus');
     const ragStatus = document.querySelector('#ragStatus');
     const ragIndex = document.querySelector('#ragIndex');
+    const terminalPrompt = document.querySelector('#terminalPrompt');
+    const terminalRun = document.querySelector('#terminalRun');
+    const terminalOutput = document.querySelector('#terminalOutput');
+
+    async function runTerminalCommand(command) {
+      if (!command.trim()) return;
+      terminalRun.disabled = true;
+      terminalOutput.textContent += `\n\nPSLM> ${command}\n`;
+      try {
+        const response = await fetch('http://127.0.0.1:8091/terminal', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({command})
+        });
+        const state = await response.json();
+        terminalOutput.textContent += `[${state.decision || 'executed'}]\n${state.output || state.error || ''}`;
+      } catch (_) {
+        terminalOutput.textContent += '[error]\nTerminal service unavailable.';
+      }
+      terminalPrompt.value = '';
+      terminalRun.disabled = false;
+      terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      terminalPrompt.focus();
+    }
+
+    terminalRun.addEventListener('click', () => runTerminalCommand(terminalPrompt.value));
+    terminalPrompt.addEventListener('keydown', event => {
+      if (event.key === 'Enter') runTerminalCommand(terminalPrompt.value);
+    });
 
     ragIndex.addEventListener('click', async () => {
       ragStatus.textContent = 'Indexing';

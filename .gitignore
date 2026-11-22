@@ -5,4 +5,5 @@
 /movements.jsonl
 /rag/*
 /knowledge/*
+/terminal.jsonl
 *.gguf

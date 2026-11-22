@@ -150,6 +150,29 @@ The daemon augments chat completion requests with the highest-ranked chunks and 
 
 For a larger knowledge base or stronger semantic retrieval, replace `Search-RagIndex` with a local ONNX, DirectML, Windows ML, or llama.cpp embedding backend. The HTTP and citation interfaces can remain unchanged.
 
+## Terminal Prompt
+
+The control UI includes a restricted terminal prompt. It is not a general PowerShell or command prompt and does not invoke `Invoke-Expression`, `cmd.exe`, or an unrestricted shell.
+
+Supported read-only commands include:
+
+- `pwd` or `Get-Location`
+- `ls [path]`, `dir [path]`, or `Get-ChildItem [path]`
+- `cat <path>`, `type <path>`, or `Get-Content <path>`
+- `git status`
+- `git log`
+- `git diff`
+- `history`
+- `help`
+
+The following Git operations are state-changing and require Human-in-the-Loop approval:
+
+- `git add .`
+- `git commit -m "<message>"`
+- `git push`
+
+Terminal file access is resolved beneath the PSLM USB directory. Shell expansion characters, command chaining, arbitrary executable names, redirection, and paths outside the project are rejected. Every command and output summary is appended to `terminal.jsonl`, which is excluded from Git and may contain sensitive filesystem names or output.
+
 ## Local API
 
 The local management API exposes a small loopback-only interface:
@@ -163,6 +186,7 @@ The local management API exposes a small loopback-only interface:
 | `POST` | `/recording` | Start or stop full cursor movement recording |
 | `POST` | `/rag/index` | Build the local knowledge index from `knowledge/` |
 | `POST` | `/rag/search` | Search indexed knowledge with a dependency-free BM25-style ranker |
+| `POST` | `/terminal` | Run an allowlisted read-only command or approved Git operation |
 
 The API has no authentication because it is bound to loopback, but users should still treat the host as sensitive: local browser extensions or same-user malware can attempt local HTTP access. Do not expose port 8091 to other network interfaces or a firewall.
 
