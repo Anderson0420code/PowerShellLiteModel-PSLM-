@@ -13,6 +13,7 @@ $RagDir = Join-Path $Root 'rag'
 $UiPath = Join-Path $Root 'ui.html'
 $LogPath = Join-Path $Root 'pslm.log'
 $ConfigPath = Join-Path $Root 'models.json'
+$AssetSelectionsPath = Join-Path $Root 'asset_paths.json'
 $ApiPort = 8091
 $InferenceProcess = $null
 $MovementLogPath = Join-Path $Root 'movements.jsonl'
@@ -142,6 +143,11 @@ function Get-HardwareProfile {
         NpuNames = @($npuDevices | Where-Object Name | Select-Object -ExpandProperty Name -Unique)
         Profile = if ($gpu) { 'cuda' } elseif ($npuAvailable) { 'npu-hybrid' } else { 'cpu' }
     }
+}
+
+function Get-InferenceProfile([string]$HardwareProfile) {
+    if ($HardwareProfile -eq 'cuda') { return 'cuda' }
+    return 'cpu'
 }
 
 function Get-RagConfig($Config) {
@@ -275,29 +281,190 @@ function Get-Config {
     Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 }
 
-function Test-InstalledEngine([string]$Profile) {
+function Read-AssetSelections {
+    $selections = @{
+        cpu=@{engine='';model=''}
+        cuda=@{engine='';model=''}
+    }
+    if (-not (Test-Path -LiteralPath $AssetSelectionsPath -PathType Leaf)) { return $selections }
+
+    try {
+        $saved = Get-Content -LiteralPath $AssetSelectionsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($assetProfile in @('cpu','cuda')) {
+            $savedProfile = $saved.PSObject.Properties[$assetProfile]
+            if (-not $savedProfile) { continue }
+            foreach ($kind in @('engine','model')) {
+                $savedPath = $savedProfile.Value.PSObject.Properties[$kind]
+                if ($savedPath -and $savedPath.Value -is [string]) {
+                    $selections[$assetProfile][$kind] = [string]$savedPath.Value
+                }
+            }
+        }
+    } catch {
+        Write-PslmLog ('Could not read asset selections: ' + $_.Exception.Message)
+    }
+    return $selections
+}
+
+function ConvertTo-StoredAssetPath([string]$Path) {
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $rootPath = [System.IO.Path]::GetFullPath($Root).TrimEnd('\','/')
+    if ([string]::Equals(
+        [System.IO.Path]::GetPathRoot($rootPath),
+        [System.IO.Path]::GetPathRoot($fullPath),
+        [StringComparison]::OrdinalIgnoreCase
+    )) {
+        $rootUri = [System.Uri]($rootPath + [System.IO.Path]::DirectorySeparatorChar)
+        $assetUri = [System.Uri]$fullPath
+        $relativePath = $rootUri.MakeRelativeUri($assetUri).ToString()
+        return [System.Uri]::UnescapeDataString($relativePath.Replace('/','\'))
+    }
+    return $fullPath
+}
+
+function Resolve-AssetPath([string]$StoredPath) {
+    if ([string]::IsNullOrWhiteSpace($StoredPath)) { return $null }
+    if ([System.IO.Path]::IsPathRooted($StoredPath)) {
+        return [System.IO.Path]::GetFullPath($StoredPath)
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $Root $StoredPath))
+}
+
+function Save-AssetSelections {
+    $tempPath = $AssetSelectionsPath + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        $script:AssetSelections | ConvertTo-Json -Depth 4 |
+            Set-Content -LiteralPath $tempPath -Encoding UTF8
+        Move-Item -LiteralPath $tempPath -Destination $AssetSelectionsPath -Force
+    } finally {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Get-EnginePath([string]$Profile) {
+    $storedPath = [string]$script:AssetSelections[$Profile].engine
+    if ($storedPath) {
+        $selectedPath = Resolve-AssetPath $storedPath
+        if ((Test-Path -LiteralPath $selectedPath -PathType Leaf) -and
+            [System.IO.Path]::GetFileName($selectedPath) -ieq 'llama-server.exe') {
+            return $selectedPath
+        }
+        return $null
+    }
+
     $directory = if ($Profile -eq 'cuda') { $BinCuda } else { $BinCpu }
-    [bool](Get-ChildItem -LiteralPath $directory -Filter 'llama-server.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
+    $server = Get-ChildItem -LiteralPath $directory -Filter 'llama-server.exe' -File -Recurse -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($server) { return $server.FullName }
+    return $null
+}
+
+function Get-ModelPath($Config, [string]$Profile) {
+    $storedPath = [string]$script:AssetSelections[$Profile].model
+    if ($storedPath) {
+        $selectedPath = Resolve-AssetPath $storedPath
+        if ((Test-Path -LiteralPath $selectedPath -PathType Leaf) -and
+            [System.IO.Path]::GetExtension($selectedPath) -ieq '.gguf') {
+            return $selectedPath
+        }
+        return $null
+    }
+
+    $model = $Config.models | Where-Object { $_.profile -eq $Profile } | Select-Object -First 1
+    if (-not $model) { return $null }
+    $modelPath = Join-Path $ModelsDir $model.file
+    if (Test-Path -LiteralPath $modelPath -PathType Leaf) { return $modelPath }
+    return $null
+}
+
+function Test-InstalledEngine([string]$Profile) {
+    [bool](Get-EnginePath $Profile)
 }
 
 function Test-SelectedModel($Config, [string]$Profile) {
-    $model = $Config.models | Where-Object { $_.profile -eq $Profile } | Select-Object -First 1
-    if (-not $model) { return $false }
-    Test-Path -LiteralPath (Join-Path $ModelsDir $model.file) -PathType Leaf
+    [bool](Get-ModelPath $Config $Profile)
 }
 
 function Start-LocalServer($Config, [string]$Profile) {
-    $directory = if ($Profile -eq 'cuda') { $BinCuda } else { $BinCpu }
-    $server = Get-ChildItem -LiteralPath $directory -Filter 'llama-server.exe' -File -Recurse | Select-Object -First 1
-    $model = $Config.models | Where-Object { $_.profile -eq $Profile } | Select-Object -First 1
-    if (-not $server -or -not $model) { return $false }
-    $modelPath = Join-Path $ModelsDir $model.file
-    if (-not (Test-Path -LiteralPath $modelPath -PathType Leaf)) { return $false }
+    $serverPath = Get-EnginePath $Profile
+    $modelPath = Get-ModelPath $Config $Profile
+    if (-not $serverPath -or -not $modelPath) { return $false }
     $arguments = '--host 127.0.0.1 --port 8080 --model "{0}"' -f $modelPath
     $arguments += if ($Profile -eq 'cuda') { ' --n-gpu-layers 999' } else { ' --n-gpu-layers 0' }
-    $script:InferenceProcess = Start-Process -FilePath $server.FullName -ArgumentList $arguments -WorkingDirectory $server.DirectoryName -WindowStyle Hidden -PassThru
+    $workingDirectory = Split-Path -LiteralPath $serverPath -Parent
+    $script:InferenceProcess = Start-Process -FilePath $serverPath -ArgumentList $arguments -WorkingDirectory $workingDirectory -WindowStyle Hidden -PassThru
     Write-PslmLog "Started llama-server ($Profile)"
     return $true
+}
+
+function Select-SetupAsset([string]$Kind) {
+    if ($Kind -notin @('engine','model')) { throw 'Asset kind must be engine or model.' }
+    $assetProfile = Get-InferenceProfile $hardware.Profile
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = if ($Kind -eq 'engine') { 'Select llama-server.exe' } else { 'Select a GGUF model' }
+    $dialog.Filter = if ($Kind -eq 'engine') {
+        'llama-server.exe (llama-server.exe)|llama-server.exe'
+    } else {
+        'GGUF model (*.gguf)|*.gguf'
+    }
+    $dialog.CheckFileExists = $true
+    $dialog.Multiselect = $false
+    $dialog.ValidateNames = $true
+
+    $storedPath = [string]$script:AssetSelections[$assetProfile][$Kind]
+    $existingPath = Resolve-AssetPath $storedPath
+    $initialDirectory = if ($existingPath -and (Test-Path -LiteralPath $existingPath -PathType Leaf)) {
+        Split-Path -LiteralPath $existingPath -Parent
+    } else {
+        $Root
+    }
+    if (Test-Path -LiteralPath $initialDirectory -PathType Container) {
+        $dialog.InitialDirectory = $initialDirectory
+    }
+
+    try {
+        if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+            return [pscustomobject]@{cancelled=$true}
+        }
+
+        $selectedPath = [System.IO.Path]::GetFullPath($dialog.FileName)
+        if ($Kind -eq 'engine' -and [System.IO.Path]::GetFileName($selectedPath) -ine 'llama-server.exe') {
+            throw 'Choose the llama-server.exe file from your engine folder.'
+        }
+        if ($Kind -eq 'model' -and [System.IO.Path]::GetExtension($selectedPath) -ine '.gguf') {
+            throw 'Choose a .gguf model file.'
+        }
+
+        $script:AssetSelections[$assetProfile][$Kind] = ConvertTo-StoredAssetPath $selectedPath
+        Save-AssetSelections
+        Write-PslmLog ("Selected $Kind for $assetProfile profile: " + [System.IO.Path]::GetFileName($selectedPath))
+
+        $serverStarted = $false
+        if ((Get-EnginePath $assetProfile) -and (Get-ModelPath $config $assetProfile)) {
+            if ($script:InferenceProcess -and -not $script:InferenceProcess.HasExited) {
+                Stop-Process -Id $script:InferenceProcess.Id -Force
+                if (-not $script:InferenceProcess.WaitForExit(5000)) {
+                    throw 'The previous inference server did not stop in time.'
+                }
+            }
+            $script:InferenceProcess = $null
+            $serverStarted = [bool](Start-LocalServer $config $assetProfile)
+        }
+
+        return [pscustomobject]@{
+            cancelled=$false
+            profile=$assetProfile
+            engineName=[System.IO.Path]::GetFileName((Get-EnginePath $assetProfile))
+            modelName=[System.IO.Path]::GetFileName((Get-ModelPath $config $assetProfile))
+            engineInstalled=[bool](Get-EnginePath $assetProfile)
+            modelInstalled=[bool](Get-ModelPath $config $assetProfile)
+            serverStarted=$serverStarted
+        }
+    } finally {
+        $dialog.Dispose()
+    }
 }
 
 function Test-EscapeHeld {
@@ -549,9 +716,11 @@ function Stop-MovementRecording {
 }
 
 $config = Get-Config
+$script:AssetSelections = Read-AssetSelections
 $hardware = Get-HardwareProfile
-$engineInstalled = Test-InstalledEngine $hardware.Profile
-$modelInstalled = Test-SelectedModel $config $hardware.Profile
+$activeProfile = Get-InferenceProfile $hardware.Profile
+$engineInstalled = Test-InstalledEngine $activeProfile
+$modelInstalled = Test-SelectedModel $config $activeProfile
 
 if ($config.rag.enabled) {
     try {
@@ -563,7 +732,7 @@ if ($config.rag.enabled) {
 }
 
 if ($engineInstalled -and $modelInstalled) {
-    [void](Start-LocalServer $config $hardware.Profile)
+    [void](Start-LocalServer $config $activeProfile)
 }
 
 $uiUrl = 'file://' + ($UiPath -replace '\\','/')
@@ -590,8 +759,6 @@ function Start-PslmAppWindow([string]$Url) {
     Start-Process -FilePath $browser -ArgumentList $arguments
     Write-PslmLog ('PSLM UI opened in app mode using ' + $browser)
 }
-Start-PslmAppWindow $uiUrl
-
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add(('http://127.0.0.1:{0}/' -f $ApiPort))
 try {
@@ -601,6 +768,7 @@ try {
     throw
 }
 Write-PslmLog ('Daemon started with profile ' + $hardware.Profile)
+Start-PslmAppWindow $uiUrl
 
 try {
     while ($listener.IsListening) {
@@ -615,12 +783,17 @@ try {
                 $context.Response.Headers.Add('Access-Control-Allow-Methods','GET,POST,OPTIONS')
                 $context.Response.Close()
             } elseif ($path -eq '/status' -and $request.HttpMethod -eq 'GET') {
-                $engineNow = Test-InstalledEngine $hardware.Profile
-                $modelNow = Test-SelectedModel $config $hardware.Profile
+                $activeProfile = Get-InferenceProfile $hardware.Profile
+                $engineNow = Test-InstalledEngine $activeProfile
+                $modelNow = Test-SelectedModel $config $activeProfile
+                $enginePathNow = Get-EnginePath $activeProfile
+                $modelPathNow = Get-ModelPath $config $activeProfile
                 Send-JsonResponse $context 200 ([ordered]@{
                     profile=$hardware.Profile
                     engineInstalled=$engineNow
                     modelInstalled=$modelNow
+                    engineName=$(if ($enginePathNow) { [System.IO.Path]::GetFileName($enginePathNow) } else { '' })
+                    modelName=$(if ($modelPathNow) { [System.IO.Path]::GetFileName($modelPathNow) } else { '' })
                     automationRunning=$true
                     emergencyEsc=Test-EscapeHeld
                     recordingMovements=$script:IsRecordingMovements
@@ -631,6 +804,12 @@ try {
                     ragIndexExists=(Test-Path -LiteralPath (Join-Path $Root ([string]$config.rag.indexFile)) -PathType Leaf)
                     terminalLog=$TerminalLogPath
                 })
+            } elseif ($path -eq '/setup/select' -and $request.HttpMethod -eq 'POST') {
+                $reader = New-Object IO.StreamReader($request.InputStream, $request.ContentEncoding)
+                $body = $reader.ReadToEnd() | ConvertFrom-Json
+                $reader.Dispose()
+                $result = Select-SetupAsset ([string]$body.kind)
+                Send-JsonResponse $context 200 $result
             } elseif ($path -eq '/rag/index' -and $request.HttpMethod -eq 'POST') {
                 $count = Update-RagIndex $config
                 Send-JsonResponse $context 200 ([ordered]@{indexedChunks=$count;knowledgeDirectory=$KnowledgeDir})

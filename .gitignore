@@ -6,4 +6,5 @@
 /rag/*
 /knowledge/*
 /terminal.jsonl
+/asset_paths.json
 *.gguf

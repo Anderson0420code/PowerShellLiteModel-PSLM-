@@ -25,8 +25,10 @@ PSLM uses PowerShell for hardware detection and process orchestration, a plain H
 ├── Run.bat
 ├── Start-AI-Daemon.ps1
 ├── Download-PSLMAssets.ps1
+├── model_sources.txt
 ├── ui.html
 ├── models.json
+├── asset_paths.json     (created locally; selected engine/model paths)
 ├── LICENSE
 ├── README.md
 ├── pslm.log
@@ -57,12 +59,11 @@ CPU mode requires a CPU-compatible engine and a model such as a 1.5B–4B Q4_K_M
    - The app window requests Traditional Chinese (`zh-TW`) and uses a compact 1280x800 window.
    - If no supported Chromium browser is installed, the page opens in the Windows default browser.
 3. The daemon creates `bin_cpu`, `bin_cuda`, and `models` if they do not exist.
-4. Place an official CPU or CUDA `llama-server.exe` build in the matching directory.
-5. Place a compatible GGUF model in `models` using the configured filename:
-   - CPU: `cpu-model.gguf`
-   - CUDA: `cuda-model.gguf`
-6. Restart `Run.bat`.
-7. Open the control page if it does not open automatically.
+4. In **快速設定**, choose the matching `llama-server.exe` and `.gguf` model. The Windows file picker can browse the USB drive or any accessible local drive.
+5. PSLM uses the selected files in place; it does not copy or move large files. After both are selected, the local inference server starts automatically.
+6. To change computers, reconnect the storage and reselect files if a saved external path is no longer available.
+
+Selections on the same drive as PSLM are saved as relative paths so they remain portable when a USB drive letter changes. Selections on another drive use absolute paths. Choices are saved locally in `asset_paths.json`, which is excluded from Git. Existing files in `bin_cpu`, `bin_cuda`, and `models/cpu-model.gguf` or `models/cuda-model.gguf` continue to work as defaults.
 
 The inference health endpoint is available at `http://127.0.0.1:8080/health`. The daemon management API is bound only to `http://127.0.0.1:8091`.
 
@@ -169,6 +170,8 @@ Supported read-only commands include:
 - `history`
 - `help`
 
+The TerminalUI also offers one-click buttons for help, the current folder, file listing, and Git status.
+
 The following Git operations are state-changing and require Human-in-the-Loop approval:
 
 - `git add .`
@@ -184,6 +187,7 @@ The local management API exposes a small loopback-only interface:
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/status` | Report hardware profile, resource state, and movement recorder state |
+| `POST` | `/setup/select` | Open a native file picker for the active profile's engine or GGUF model |
 | `POST` | `/completion` | Forward an OpenAI-compatible chat request to local llama.cpp |
 | `POST` | `/search` | Perform a zero-dependency local DuckDuckGo HTML search request |
 | `POST` | `/action` | Preview or execute an allowlisted automation action |
