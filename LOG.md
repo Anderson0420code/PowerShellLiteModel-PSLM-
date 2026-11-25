@@ -4,3 +4,4 @@
 26-11-22-02:beta(v0.0.1)published
 26-11-25-01:fixed Download-PSLMAssets.ps1 temporary-file collisions, partial-download cleanup, redirect-host validation, archive validation, and missing llama-server.exe detection
 26-11-25-02:replaced BM25 RAG splitting/ranking with Lite Paragraph Cutter, added CJK-aware lightweight matching, modernized responsive UI styling
+26-11-25-03:packaged and published beta v0.0.2 source bundle
