@@ -145,12 +145,12 @@ Place private knowledge files in the `knowledge/` directory. PSLM recursively su
 At startup and through `POST /rag/index`, PSLM:
 
 1. reads supported text files from removable media;
-2. splits each file into overlapping chunks;
+2. uses Lite Paragraph Cutter to keep paragraph boundaries and pack paragraph/sentence text into length-capped chunks;
 3. records source filename and chunk number;
 4. writes a local JSON index to `rag/index.json`;
-5. ranks relevant chunks using a dependency-free BM25-style text ranker.
+5. ranks relevant chunks with lightweight query-term and exact-phrase matching, including CJK bigram matching.
 
-The daemon augments chat completion requests with the highest-ranked chunks and instructs the model to cite source file and chunk values. No embedding service or vector database is required. The ranker is portable, deterministic, and fully local.
+The daemon augments chat completion requests with the highest-ranked chunks and instructs the model to cite source file and chunk values. No embedding service, vector database, or BM25 index is required. Chunking and retrieval are portable, deterministic, and fully local.
 
 For a larger knowledge base or stronger semantic retrieval, replace `Search-RagIndex` with a local ONNX, DirectML, Windows ML, or llama.cpp embedding backend. The HTTP and citation interfaces can remain unchanged.
 
@@ -189,7 +189,7 @@ The local management API exposes a small loopback-only interface:
 | `POST` | `/action` | Preview or execute an allowlisted automation action |
 | `POST` | `/recording` | Start or stop full cursor movement recording |
 | `POST` | `/rag/index` | Build the local knowledge index from `knowledge/` |
-| `POST` | `/rag/search` | Search indexed knowledge with a dependency-free BM25-style ranker |
+| `POST` | `/rag/search` | Search indexed knowledge with lightweight term/phrase matching |
 | `POST` | `/terminal` | Run an allowlisted read-only command or approved Git operation |
 
 The API has no authentication because it is bound to loopback, but users should still treat the host as sensitive: local browser extensions or same-user malware can attempt local HTTP access. Do not expose port 8091 to other network interfaces or a firewall.

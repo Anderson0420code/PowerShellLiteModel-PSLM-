@@ -149,29 +149,44 @@ function Get-RagConfig($Config) {
     [pscustomobject]@{
         enabled=$true
         chunkCharacters=900
-        chunkOverlap=120
         maxResults=5
         indexFile='rag/index.json'
         extensions=@('.txt','.md','.csv','.json','.log')
     }
 }
 
-function ConvertTo-RagChunks([string]$Text, [int]$ChunkSize, [int]$Overlap) {
+function ConvertTo-LiteParagraphChunks([string]$Text, [int]$ChunkSize) {
     $normalized = ($Text -replace "`r`n?","`n").Trim()
     if (-not $normalized) { return @() }
     $chunks = New-Object System.Collections.Generic.List[object]
-    $start = 0
+    $current = New-Object System.Text.StringBuilder
     $id = 0
-    while ($start -lt $normalized.Length) {
-        $length = [Math]::Min($ChunkSize, $normalized.Length - $start)
-        $chunkText = $normalized.Substring($start, $length).Trim()
-        if ($chunkText) {
-            $chunks.Add([pscustomobject]@{id=$id;text=$chunkText})
-            $id++
+    $paragraphs = $normalized -split "`n(?:[ `t]*`n)+"
+    foreach ($paragraph in $paragraphs) {
+        $paragraph = $paragraph.Trim()
+        if (-not $paragraph) { continue }
+        $sentences = [regex]::Split($paragraph, '(?<=[.!?])\s+')
+        foreach ($sentence in $sentences) {
+            $sentence = $sentence.Trim()
+            if (-not $sentence) { continue }
+            for ($offset = 0; $offset -lt $sentence.Length; $offset += $ChunkSize) {
+                $length = [Math]::Min($ChunkSize, $sentence.Length - $offset)
+                $part = $sentence.Substring($offset, $length).Trim()
+                if (-not $part) { continue }
+                $separator = if ($current.Length -gt 0) { "`n`n" } else { '' }
+                if ($current.Length -gt 0 -and ($current.Length + $separator.Length + $part.Length) -gt $ChunkSize) {
+                    $chunks.Add([pscustomobject]@{id=$id;text=$current.ToString()})
+                    $id++
+                    [void]$current.Clear()
+                    $separator = ''
+                }
+                if ($separator) { [void]$current.Append($separator) }
+                [void]$current.Append($part)
+            }
         }
-        $next = $start + $ChunkSize - $Overlap
-        if ($next -le $start) { break }
-        $start = $next
+    }
+    if ($current.Length -gt 0) {
+        $chunks.Add([pscustomobject]@{id=$id;text=$current.ToString()})
     }
     return $chunks.ToArray()
 }
@@ -181,7 +196,6 @@ function Update-RagIndex($Config) {
     $extensions = @($rag.extensions)
     $documents = New-Object System.Collections.Generic.List[object]
     $chunkSize = [Math]::Max(200,[int]$rag.chunkCharacters)
-    $overlap = [Math]::Min([int]$rag.chunkOverlap,[Math]::Max(0,$chunkSize - 1))
 
     Get-ChildItem -LiteralPath $KnowledgeDir -File -Recurse -ErrorAction SilentlyContinue |
         Where-Object { $_.Extension.ToLowerInvariant() -in $extensions } |
@@ -189,7 +203,7 @@ function Update-RagIndex($Config) {
             try {
                 $text = Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8
                 $relative = $_.FullName.Substring($KnowledgeDir.Length).TrimStart('\','/')
-                foreach ($chunk in (ConvertTo-RagChunks $text $chunkSize $overlap)) {
+                foreach ($chunk in (ConvertTo-LiteParagraphChunks $text $chunkSize)) {
                     $documents.Add([pscustomobject]@{
                         file=$relative
                         chunk=$chunk.id
@@ -205,6 +219,7 @@ function Update-RagIndex($Config) {
     New-Item -ItemType Directory -Path (Split-Path $indexPath -Parent) -Force | Out-Null
     [ordered]@{
         generatedAt=(Get-Date).ToUniversalTime().ToString('o')
+        chunkingMethod='Lite Paragraph Cutter'
         documentCount=$documents.Count
         chunks=@($documents.ToArray())
     } | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath $indexPath -Encoding UTF8
@@ -216,36 +231,44 @@ function Search-RagIndex($Config, [string]$Query, [int]$Limit) {
     $indexPath = Join-Path $Root ([string]$rag.indexFile)
     if (-not (Test-Path -LiteralPath $indexPath -PathType Leaf)) { return @() }
     $index = Get-Content -LiteralPath $indexPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    $queryTerms = ([regex]::Matches($Query.ToLowerInvariant(), '[\p{L}\p{N}_]+') | ForEach-Object Value |
-        Where-Object { $_.Length -ge 2 } | Select-Object -Unique)
+    $queryTerms = New-Object System.Collections.Generic.List[string]
+    foreach ($match in [regex]::Matches($Query.ToLowerInvariant(), '[\p{L}\p{N}_]+')) {
+        $term = $match.Value
+        if ($term -match '^[\u3400-\u9FFF\uF900-\uFAFF]+$') {
+            if ($term.Length -eq 1) {
+                $queryTerms.Add($term)
+            } else {
+                for ($i = 0; $i -lt ($term.Length - 1); $i++) {
+                    $queryTerms.Add($term.Substring($i, 2))
+                }
+            }
+        } elseif ($term.Length -ge 2) {
+            $queryTerms.Add($term)
+        }
+    }
+    $queryTerms = @($queryTerms | Select-Object -Unique)
     if (-not $queryTerms -or -not $index.chunks) { return @() }
 
-    $count = @($index.chunks).Count
-    $docLengths = @($index.chunks | ForEach-Object { ([regex]::Matches($_.text.ToLowerInvariant(), '[\p{L}\p{N}_]+')).Count })
-    $averageLength = if ($count) { ([double](($docLengths | Measure-Object -Sum).Sum)) / $count } else { 1 }
     $ranked = New-Object System.Collections.Generic.List[object]
+    $normalizedQuery = ($Query -replace '\s+', ' ').Trim().ToLowerInvariant()
     foreach ($chunk in $index.chunks) {
         $lower = $chunk.text.ToLowerInvariant()
-        $length = ([regex]::Matches($lower, '[\p{L}\p{N}_]+')).Count
-        $score = 0.0
+        $matchedTerms = 0
         foreach ($term in $queryTerms) {
-            $frequency = ([regex]::Matches($lower, [regex]::Escape($term))).Count
-            if ($frequency -gt 0) {
-                $idf = [Math]::Log((($count + 1.0) / 1.0) + 1.0)
-                $normalized = $frequency * 2.2 / ($frequency + 1.2 * (0.25 + 0.75 * $length / [Math]::Max($averageLength,1.0)))
-                $score += $idf * $normalized
-            }
+            if ($lower.Contains($term)) { $matchedTerms++ }
         }
-        if ($score -gt 0) {
+        if ($matchedTerms -gt 0) {
+            $score = [double]$matchedTerms
+            if ($normalizedQuery -and $lower.Contains($normalizedQuery)) { $score += 0.5 }
             $ranked.Add([pscustomobject]@{
-                score=[Math]::Round($score,6)
+                score=$score
                 file=$chunk.file
                 chunk=$chunk.chunk
                 text=$chunk.text
             })
         }
     }
-    return @($ranked | Sort-Object score -Descending | Select-Object -First $Limit)
+    return @($ranked | Sort-Object @{Expression='score';Descending=$true}, file, chunk | Select-Object -First $Limit)
 }
 
 function Get-Config {

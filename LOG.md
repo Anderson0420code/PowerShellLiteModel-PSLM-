@@ -3,3 +3,4 @@
 26-11-22-01:hybrid/npu(detect-only)/RAG finished
 26-11-22-02:beta(v0.0.1)published
 26-11-25-01:fixed Download-PSLMAssets.ps1 temporary-file collisions, partial-download cleanup, redirect-host validation, archive validation, and missing llama-server.exe detection
+26-11-25-02:replaced BM25 RAG splitting/ranking with Lite Paragraph Cutter, added CJK-aware lightweight matching, modernized responsive UI styling

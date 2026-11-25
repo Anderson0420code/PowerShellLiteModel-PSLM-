@@ -36,7 +36,6 @@
     "knowledgeDirectory": "knowledge",
     "indexFile": "rag/index.json",
     "chunkCharacters": 900,
-    "chunkOverlap": 120,
     "maxResults": 5,
     "extensions": [".txt", ".md", ".csv", ".json", ".log"]
   },
