@@ -2,3 +2,4 @@
 26-11-21-01:basic pushed
 26-11-22-01:hybrid/npu(detect-only)/RAG finished
 26-11-22-02:beta(v0.0.1)published
+26-11-25-01:fixed Download-PSLMAssets.ps1 temporary-file collisions, partial-download cleanup, redirect-host validation, archive validation, and missing llama-server.exe detection

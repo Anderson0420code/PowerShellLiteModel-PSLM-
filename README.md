@@ -100,6 +100,7 @@ Download a CPU or CUDA model:
 ```
 
 The downloader deletes a downloaded file after a hash mismatch and does not silently accept it. If no published hash is available, independently verify the provider's checksum through a trusted channel before use.
+Downloads use unique temporary files and are cleaned up after success or failure. Redirect destinations must also use an approved host. Engine archives must contain `llama-server.exe` and are installed only from `.zip` files.
 
 ## Hardware Profiles
 
