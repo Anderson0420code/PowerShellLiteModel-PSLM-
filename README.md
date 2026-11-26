@@ -146,7 +146,7 @@ Place private knowledge files in the `knowledge/` directory. PSLM recursively su
 At startup and through `POST /rag/index`, PSLM:
 
 1. reads supported text files from removable media;
-2. uses Lite Paragraph Cutter to keep paragraph boundaries and pack paragraph/sentence text into length-capped chunks;
+2. uses Lite Paragraph Cutter to keep paragraph boundaries, split on English and Chinese sentence punctuation, and pack text into length-capped chunks;
 3. records source filename and chunk number;
 4. writes a local JSON index to `rag/index.json`;
 5. ranks relevant chunks with lightweight query-term and exact-phrase matching, including CJK bigram matching.
@@ -178,6 +178,8 @@ The following Git operations are state-changing and require Human-in-the-Loop ap
 - `git commit -m "<message>"`
 - `git push`
 
+Git commits use the configured Git identity (`user.name` and `user.email`) when available; otherwise PSLM uses the fallback identity `PSLM User <pslm@localhost>`.
+
 Terminal file access is resolved beneath the PSLM USB directory. Shell expansion characters, command chaining, arbitrary executable names, redirection, and paths outside the project are rejected. Every command and output summary is appended to `terminal.jsonl`, which is excluded from Git and may contain sensitive filesystem names or output.
 
 ## Local API
@@ -191,12 +193,13 @@ The local management API exposes a small loopback-only interface:
 | `POST` | `/completion` | Forward an OpenAI-compatible chat request to local llama.cpp |
 | `POST` | `/search` | Perform a zero-dependency local DuckDuckGo HTML search request |
 | `POST` | `/action` | Preview or execute an allowlisted automation action |
+| `POST` | `/agent/scan` | Scan controls from the foreground window for the Agent UI |
 | `POST` | `/recording` | Start or stop full cursor movement recording |
 | `POST` | `/rag/index` | Build the local knowledge index from `knowledge/` |
 | `POST` | `/rag/search` | Search indexed knowledge with lightweight term/phrase matching |
 | `POST` | `/terminal` | Run an allowlisted read-only command or approved Git operation |
 
-The API has no authentication because it is bound to loopback, but users should still treat the host as sensitive: local browser extensions or same-user malware can attempt local HTTP access. Do not expose port 8091 to other network interfaces or a firewall.
+At each start, the daemon generates a cryptographically random session token and passes it to the bundled UI in the local file URL fragment. All management requests require the `X-PSLM-Token` header; CORS is limited to the opaque `null` origin used by the local file UI. The token is not written to disk or logs. Keep the UI URL private while the daemon is running. This protects against ordinary websites attempting cross-origin requests, but is not a defense against local malware, browser extensions, or other processes running as the same user. Do not expose port 8091 to other network interfaces or a firewall.
 
 ## Desktop Automation Safety
 
@@ -210,6 +213,10 @@ The supported action types are:
 - `shortcut`: send a command from a strict shortcut allowlist.
 
 Before a write action, PSLM opens a red topmost preview and a native approval dialog. Only **Approve** executes the action; Reject and Abort do not. The red preview is coordinate-based and should be visually verified by the operator.
+
+The **Agent 桌面操作** panel is connected to the authenticated API: choose **掃描目前視窗**, switch to the target application within two seconds, then choose a visible button. PSLM rechecks the target window and button bounds, outlines it in red, and waits for native human approval before clicking.
+
+For explicitly requested button clicks, `/completion` also supplies scanned foreground controls to the model. The model may return a structured `PSLM_ACTION` directive naming one exact visible button; PSLM rescans and requires a unique match, outlines that control in red, and waits for native human approval. No model directive can bypass this approval or request arbitrary coordinates.
 
 The allowlist does not include arbitrary shell commands, application launches, or unrestricted key sequences. Sending text is still potentially sensitive because it can trigger application behavior, submit forms, or modify files. Never approve an action outside your intent.
 

@@ -113,6 +113,11 @@
     .terminal-row input { font-family:Consolas,Monaco,monospace; }
     .terminal-toolbar { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 10px; }
     .terminal-toolbar button { min-height:32px; padding:5px 10px; font-size:12px; }
+    #agentControls { display:grid; gap:8px; margin-top:12px; }
+    .agent-control { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#0b1510; }
+    .agent-control-name { min-width:0; overflow-wrap:anywhere; color:var(--text); font-size:13px; }
+    .agent-control-meta { color:var(--muted); font-size:11px; }
+    .agent-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
     @media (max-width:820px) {
       main { grid-template-columns:260px minmax(0,1fr); }
       aside { padding:18px 14px; }
@@ -145,7 +150,7 @@
     <div class="brand-mark" aria-label="PSLM official mark">PSLM</div>
     <div class="dot" id="dot"></div>
     <h1>PSLM 本機助理</h1>
-    <span id="status">離線 · 等待安裝資源</span>
+    <span id="status">Agent 連線檢查中</span>
   </header>
   <main>
     <aside>
@@ -225,15 +230,25 @@
         </div>
       </div>
       <div class="card">
-        <h2>操作審批</h2>
-        <p>所有滑鼠、鍵盤與快捷鍵動作預設需要人工核准。ESC 可中止目前的自動化流程。</p>
-        <button id="approve" disabled>核准</button>
-        <button id="reject" disabled>拒絕</button>
-        <button id="abort" disabled>終止</button>
+        <h2>Agent 桌面操作</h2>
+        <p>掃描前有 2 秒切換至目標視窗。選取可見按鈕後，PSLM 會重新核對目標、顯示紅框並要求原生人工核准；ESC 可中止。</p>
+        <div class="agent-toolbar">
+          <button class="primary" id="agentScan" disabled>掃描目前視窗</button>
+          <span id="agentStatus" class="badge" role="status" aria-live="polite">等待 Agent API 連線</span>
+        </div>
+        <div id="agentControls" aria-live="polite"></div>
       </div>
     </section>
   </main>
   <script>
+    const apiToken = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+    async function apiFetch(url, options = {}) {
+      if (!apiToken) throw new Error('請以 Run.bat 重新啟動 PSLM，取得本機 API 工作階段。');
+      const headers = new Headers(options.headers || {});
+      headers.set('X-PSLM-Token', apiToken);
+      return fetch(url, {...options, headers});
+    }
+
     const engine = document.querySelector('#engine');
     const model = document.querySelector('#model');
     const status = document.querySelector('#status');
@@ -255,13 +270,18 @@
     const terminalRun = document.querySelector('#terminalRun');
     const terminalOutput = document.querySelector('#terminalOutput');
     const terminalClear = document.querySelector('#terminalClear');
+    const agentScan = document.querySelector('#agentScan');
+    const agentStatus = document.querySelector('#agentStatus');
+    const agentControls = document.querySelector('#agentControls');
+    let apiConnected = false;
+    let inferenceConnected = false;
 
     async function runTerminalCommand(command) {
       if (!command.trim()) return;
       terminalRun.disabled = true;
       terminalOutput.textContent += `\n\nPSLM> ${command}\n`;
       try {
-        const response = await fetch('http://127.0.0.1:8091/terminal', {
+        const response = await apiFetch('http://127.0.0.1:8091/terminal', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({command})
@@ -295,7 +315,7 @@
       button.disabled = true;
       setupStatus.textContent = '請在檔案視窗選取檔案；取消不會變更設定。';
       try {
-        const response = await fetch('http://127.0.0.1:8091/setup/select', {
+        const response = await apiFetch('http://127.0.0.1:8091/setup/select', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({kind})
@@ -331,7 +351,7 @@
     ragIndex.addEventListener('click', async () => {
       ragStatus.textContent = '建立索引中';
       try {
-        const response = await fetch('http://127.0.0.1:8091/rag/index', {method:'POST'});
+        const response = await apiFetch('http://127.0.0.1:8091/rag/index', {method:'POST'});
         const state = await response.json();
         ragStatus.textContent = `${state.indexedChunks || 0} 個區塊`;
       } catch (_) {
@@ -340,7 +360,7 @@
     });
 
     async function setRecording(action) {
-      const response = await fetch('http://127.0.0.1:8091/recording', {
+      const response = await apiFetch('http://127.0.0.1:8091/recording', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action})
@@ -357,8 +377,10 @@
 
     async function refreshStatus() {
       try {
-        const response = await fetch('http://127.0.0.1:8091/status');
+        const response = await apiFetch('http://127.0.0.1:8091/status');
+        if (!response.ok) throw new Error(`本機 Agent API 連線失敗 (${response.status})`);
         const state = await response.json();
+        apiConnected = true;
         profile.textContent = state.profile === 'cuda' ? 'CUDA / NVIDIA' : (state.profile === 'npu-hybrid' ? 'NPU 混合運算' : '純 CPU');
         setupProfile.textContent = profile.textContent;
         engine.textContent = state.engineName || '尚未選取';
@@ -373,7 +395,13 @@
         npuStatus.textContent = state.npuAvailable ? '可用' : '未偵測到';
         npuStatus.className = state.npuAvailable ? 'badge ok' : 'badge';
         ragStatus.textContent = state.ragIndexExists ? '已就緒' : '尚未建立索引';
-      } catch (_) {}
+      } catch (error) {
+        apiConnected = false;
+        agentStatus.textContent = apiToken
+          ? `Agent API 無法連線：${error.message || '請確認 Run.bat 正在執行。'}`
+          : '缺少本機 Token，請以 Run.bat 開啟';
+      }
+      agentScan.disabled = !apiConnected;
       await refreshInferenceState();
     }
     refreshStatus();
@@ -386,34 +414,117 @@
       chat.value += `\n\n使用者：${prompt.value}`;
       prompt.disabled = true;
       try {
-        const response = await fetch('http://127.0.0.1:8091/completion', {
+        const response = await apiFetch('http://127.0.0.1:8091/completion', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({messages:[{role:'user',content:prompt.value}],temperature:0.7})
         });
         const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `Agent API 錯誤 (${response.status})`);
         chat.value += `\n\n助理：${result.choices?.[0]?.message?.content || result.error || '無回應'}`;
+        if (result.pslmAction) {
+          chat.value += `\n\nPSLM 動作：${result.pslmAction.decision}${result.pslmAction.error ? `（${result.pslmAction.error}）` : ''}`;
+        }
       } catch (error) {
-        chat.value += `\n\n助理：連線失敗，請確認 llama-server 已啟動。`;
+        chat.value += `\n\nAgent 錯誤：${error.message || '無法連線。'}`;
       }
       prompt.disabled = false;
       prompt.value = '';
       chat.scrollTop = chat.scrollHeight;
     });
 
+    agentScan.addEventListener('click', async () => {
+      agentScan.disabled = true;
+      agentControls.replaceChildren();
+      agentStatus.textContent = '2 秒後掃描目前視窗；請切換到要操作的應用程式。';
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const response = await apiFetch('http://127.0.0.1:8091/agent/scan', {method:'POST'});
+        const state = await response.json();
+        if (!response.ok) throw new Error(state.error || `掃描失敗 (${response.status})`);
+        const controls = Array.isArray(state.controls) ? state.controls : [];
+        const buttons = controls.filter(control => control.controlType === 'ControlType.Button' && control.name);
+        if (buttons.length === 0) {
+          agentStatus.textContent = `已掃描 ${controls.length} 個控制項，沒有可操作的按鈕。`;
+          return;
+        }
+        agentStatus.textContent = `找到 ${buttons.length} 個按鈕；選取後仍需人工核准。`;
+        for (const control of buttons) {
+          const row = document.createElement('div');
+          row.className = 'agent-control';
+          const label = document.createElement('div');
+          label.className = 'agent-control-name';
+          label.textContent = control.name;
+          const meta = document.createElement('div');
+          meta.className = 'agent-control-meta';
+          meta.textContent = `${control.width} × ${control.height}`;
+          const click = document.createElement('button');
+          click.type = 'button';
+          click.textContent = '提出點擊';
+          click.addEventListener('click', async () => {
+            for (const actionButton of agentControls.querySelectorAll('button')) actionButton.disabled = true;
+            agentStatus.textContent = `等待「${control.name}」的原生核准視窗…`;
+            try {
+              const actionResponse = await apiFetch('http://127.0.0.1:8091/action', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                  type:'agent-click',
+                  target:control.name,
+                  windowHandle:state.windowHandle,
+                  x:control.x,
+                  y:control.y,
+                  width:control.width,
+                  height:control.height
+                })
+              });
+              const result = await actionResponse.json();
+              if (!actionResponse.ok) throw new Error(result.error || `Agent 動作失敗 (${actionResponse.status})`);
+              agentStatus.textContent = result.decision === 'executed'
+                ? `已核准並點擊「${control.name}」。`
+                : `${result.decision || '未執行'}：${result.error || '未執行點擊。'}`;
+            } catch (error) {
+              agentStatus.textContent = error.message || 'Agent 動作失敗。';
+            } finally {
+              for (const actionButton of agentControls.querySelectorAll('button')) actionButton.disabled = false;
+            }
+          });
+          const text = document.createElement('div');
+          text.append(label, meta);
+          row.append(text, click);
+          agentControls.append(row);
+        }
+      } catch (error) {
+        agentStatus.textContent = error.message || 'Agent 掃描失敗。';
+      } finally {
+        agentScan.disabled = !apiConnected;
+      }
+    });
+
     async function refreshInferenceState() {
       try {
         const response = await fetch('http://127.0.0.1:8080/health');
         if (!response.ok) throw new Error('server unavailable');
-        dot.style.background = 'var(--good)';
-        dot.style.boxShadow = '0 0 12px var(--good)';
-        status.textContent = '線上 · 本機 8080';
-        send.disabled = false;
+        inferenceConnected = true;
       } catch (_) {
+        inferenceConnected = false;
+      }
+      send.disabled = !apiConnected || !inferenceConnected;
+      if (!apiConnected) {
         dot.style.background = 'var(--warn)';
         dot.style.boxShadow = '0 0 16px var(--warn)';
-        status.textContent = '離線 · 請完成快速設定';
-        send.disabled = true;
+        status.textContent = 'Agent API 離線 · 請以 Run.bat 開啟';
+        agentStatus.textContent = apiToken ? 'Agent API 未連線；請確認 Run.bat 正在執行' : '缺少本機 Token，請以 Run.bat 開啟';
+      } else if (!inferenceConnected) {
+        dot.style.background = 'var(--warn)';
+        dot.style.boxShadow = '0 0 16px var(--warn)';
+        status.textContent = 'Agent API 已連線 · 模型離線';
+        agentStatus.textContent = 'Agent API 已連線；先選擇引擎與 GGUF 模型';
+      } else {
+        dot.style.background = 'var(--good)';
+        dot.style.boxShadow = '0 0 12px var(--good)';
+        status.textContent = 'Agent 已連線 · 本機模型就緒';
+        agentStatus.textContent = 'Agent 已連線，可掃描桌面';
       }
     }
   </script>
