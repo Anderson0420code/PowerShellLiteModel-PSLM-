@@ -8,3 +8,4 @@
 26-11-25-04:added GUI file selection for in-place engine/model paths, portable path persistence, and safer quick-command TerminalUI for beta v0.0.3
 26-11-26-01:secured local management API with per-start random token and file-origin CORS, escaped SendKeys literals, split Chinese RAG punctuation, resolved Git identity dynamically, and added scanned button actions with mandatory red-outline approval
 26-11-26-02:connected the UI Agent panel to authenticated scan/click APIs, added two-second target-window handoff, revalidated target bounds before approved clicks, and surfaced Agent/API/model connection failures in the UI for beta v0.0.4
+26-11-26-03:added static local-AI PowerShell explanations with project-path and SHA-256 review checks plus explicit native execution approval, and created local launcher/installer C# sources and test executables (not included in Git)

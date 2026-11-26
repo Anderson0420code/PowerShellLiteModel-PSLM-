@@ -65,6 +65,10 @@ CPU mode requires a CPU-compatible engine and a model such as a 1.5B–4B Q4_K_M
 
 Selections on the same drive as PSLM are saved as relative paths so they remain portable when a USB drive letter changes. Selections on another drive use absolute paths. Choices are saved locally in `asset_paths.json`, which is excluded from Git. Existing files in `bin_cpu`, `bin_cuda`, and `models/cpu-model.gguf` or `models/cuda-model.gguf` continue to work as defaults.
 
+### Review a PowerShell script before running it
+
+Use **PowerShell 程式解說** to select a `.ps1` file inside the PSLM project. The local model analyzes the script as untrusted text and describes its purpose and visible side effects; it does not execute the script. Review both the explanation and the displayed source before selecting **我已檢查，執行此腳本**. A second native Windows confirmation is required. PSLM rechecks the script SHA-256 and project path, then opens a visible PowerShell window without bypassing the Windows execution policy. Scripts outside the project, changed after review, or linked through symbolic links/junctions are rejected.
+
 The inference health endpoint is available at `http://127.0.0.1:8080/health`. The daemon management API is bound only to `http://127.0.0.1:8091`.
 
 ## Downloading Official Assets
@@ -190,6 +194,8 @@ The local management API exposes a small loopback-only interface:
 |---|---|---|
 | `GET` | `/status` | Report hardware profile, resource state, and movement recorder state |
 | `POST` | `/setup/select` | Open a native file picker for the active profile's engine or GGUF model |
+| `POST` | `/powershell/explain` | Select a project-local PowerShell script and request a static explanation from the local model |
+| `POST` | `/powershell/run` | Request human approval and launch an unchanged, recently reviewed project script |
 | `POST` | `/completion` | Forward an OpenAI-compatible chat request to local llama.cpp |
 | `POST` | `/search` | Perform a zero-dependency local DuckDuckGo HTML search request |
 | `POST` | `/action` | Preview or execute an allowlisted automation action |

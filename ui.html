@@ -118,6 +118,8 @@
     .agent-control-name { min-width:0; overflow-wrap:anywhere; color:var(--text); font-size:13px; }
     .agent-control-meta { color:var(--muted); font-size:11px; }
     .agent-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+    #scriptExplanation,#scriptSource { max-height:320px; overflow:auto; padding:12px; border:1px solid var(--line); border-radius:10px; background:#08110c; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.6 Consolas,Monaco,monospace; }
+    #scriptSource { max-height:240px; }
     @media (max-width:820px) {
       main { grid-template-columns:260px minmax(0,1fr); }
       aside { padding:18px 14px; }
@@ -238,6 +240,21 @@
         </div>
         <div id="agentControls" aria-live="polite"></div>
       </div>
+      <div class="card">
+        <h2>PowerShell 程式解說</h2>
+        <p>只選取 PSLM 專案資料夾內的 .ps1。AI 只做靜態解說；確認程式內容後，按執行並再確認原生對話框，才會在可見視窗啟動。執行不會繞過 Windows PowerShell 執行原則。</p>
+        <div class="agent-toolbar">
+          <button class="primary" id="scriptExplain">選擇並請 AI 解說</button>
+          <button id="scriptRun" disabled>我已檢查，執行此腳本</button>
+          <span id="scriptStatus" class="badge" role="status" aria-live="polite">尚未選取腳本</span>
+        </div>
+        <p id="scriptName"></p>
+        <div id="scriptExplanation" role="region" aria-label="PowerShell 靜態解說"></div>
+        <details>
+          <summary>查看選取的原始程式碼</summary>
+          <pre id="scriptSource"></pre>
+        </details>
+      </div>
     </section>
   </main>
   <script>
@@ -273,6 +290,13 @@
     const agentScan = document.querySelector('#agentScan');
     const agentStatus = document.querySelector('#agentStatus');
     const agentControls = document.querySelector('#agentControls');
+    const scriptExplain = document.querySelector('#scriptExplain');
+    const scriptRun = document.querySelector('#scriptRun');
+    const scriptStatus = document.querySelector('#scriptStatus');
+    const scriptName = document.querySelector('#scriptName');
+    const scriptExplanation = document.querySelector('#scriptExplanation');
+    const scriptSource = document.querySelector('#scriptSource');
+    let activeScriptReviewId = '';
     let apiConnected = false;
     let inferenceConnected = false;
 
@@ -402,6 +426,7 @@
           : '缺少本機 Token，請以 Run.bat 開啟';
       }
       agentScan.disabled = !apiConnected;
+      scriptExplain.disabled = !apiConnected;
       await refreshInferenceState();
     }
     refreshStatus();
@@ -498,6 +523,62 @@
         agentStatus.textContent = error.message || 'Agent 掃描失敗。';
       } finally {
         agentScan.disabled = !apiConnected;
+      }
+    });
+
+    scriptExplain.addEventListener('click', async () => {
+      scriptExplain.disabled = true;
+      scriptRun.disabled = true;
+      activeScriptReviewId = '';
+      scriptName.textContent = '';
+      scriptExplanation.textContent = '';
+      scriptSource.textContent = '';
+      scriptStatus.textContent = '選取腳本並請本機模型分析中…';
+      try {
+        const response = await apiFetch('http://127.0.0.1:8091/powershell/explain', {method:'POST'});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `程式解說失敗 (${response.status})`);
+        if (result.cancelled) {
+          scriptStatus.textContent = '未選取腳本。';
+          return;
+        }
+        activeScriptReviewId = result.reviewId || '';
+        scriptName.textContent = `${result.fileName || 'PowerShell 腳本'} · SHA-256 ${result.sha256 || ''}`;
+        scriptExplanation.textContent = result.explanation || '模型沒有提供解說。';
+        scriptSource.textContent = result.source || '';
+        scriptStatus.textContent = activeScriptReviewId
+          ? '解說完成；先檢查原始碼與副作用，再決定是否執行。'
+          : '解說完成，但無法取得執行審查代碼。';
+        scriptRun.disabled = !activeScriptReviewId;
+      } catch (error) {
+        scriptStatus.textContent = error.message || '無法解說這個 PowerShell 腳本。';
+      } finally {
+        scriptExplain.disabled = !apiConnected;
+      }
+    });
+
+    scriptRun.addEventListener('click', async () => {
+      if (!activeScriptReviewId) return;
+      scriptRun.disabled = true;
+      scriptExplain.disabled = true;
+      scriptStatus.textContent = '請檢查 PowerShell 原生核准對話框；拒絕或取消都不會執行。';
+      try {
+        const response = await apiFetch('http://127.0.0.1:8091/powershell/run', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({reviewId:activeScriptReviewId})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `腳本執行要求失敗 (${response.status})`);
+        scriptStatus.textContent = result.decision === 'started'
+          ? `已在可見 PowerShell 視窗啟動（PID ${result.processId}）。`
+          : result.message || '腳本未執行。';
+      } catch (error) {
+        scriptStatus.textContent = error.message || '腳本未執行。';
+      } finally {
+        activeScriptReviewId = '';
+        scriptRun.disabled = true;
+        scriptExplain.disabled = !apiConnected;
       }
     });
 
