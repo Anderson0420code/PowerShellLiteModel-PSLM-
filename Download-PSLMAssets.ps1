@@ -17,11 +17,56 @@ $allowedHosts = @(
     'objects.githubusercontent.com',
     'release-assets.githubusercontent.com',
     'huggingface.co',
-    'cdn-lfs.hf.co'
+    'cdn-lfs.hf.co',
+    'cdn-lfs.huggingface.co',
+    'cas-bridge.xethub.hf.co'
 )
 
 function Test-ApprovedHost([System.Uri]$Uri) {
-    return $Uri.Host -in $allowedHosts
+    return $Uri.Scheme -eq 'https' -and
+        [string]::IsNullOrEmpty($Uri.UserInfo) -and
+        $Uri.Host -in $allowedHosts
+}
+
+function Get-ApprovedWebResponse([System.Uri]$InitialUri) {
+    $currentUri = $InitialUri
+    for ($redirect = 0; $redirect -le 5; $redirect++) {
+        if (-not (Test-ApprovedHost $currentUri)) {
+            throw "Refusing download URL or redirect to unapproved HTTPS host: $($currentUri.Host)"
+        }
+
+        $request = [System.Net.HttpWebRequest]::Create($currentUri)
+        $request.AllowAutoRedirect = $false
+        $request.UserAgent = 'PSLM-Asset-Downloader'
+        $request.Timeout = 30000
+        $request.ReadWriteTimeout = 120000
+
+        try {
+            $response = $request.GetResponse()
+        } catch [System.Net.WebException] {
+            $response = $_.Exception.Response
+            if (-not $response) {
+                throw
+            }
+        }
+
+        $status = [int]$response.StatusCode
+        if ($status -ge 300 -and $status -lt 400) {
+            $location = $response.Headers[[System.Net.HttpResponseHeader]::Location]
+            $response.Close()
+            if ([string]::IsNullOrEmpty($location) -or $redirect -eq 5) {
+                throw 'Download exceeded the allowed redirect limit.'
+            }
+            $currentUri = [System.Uri]::new($currentUri, $location)
+            continue
+        }
+        if ($status -ne 200) {
+            $response.Close()
+            throw "Download failed with HTTP status $status."
+        }
+        return $response
+    }
+    throw 'Download exceeded the allowed redirect limit.'
 }
 
 $uri = [System.Uri]$Url
@@ -44,16 +89,22 @@ $tempExtract = $null
 
 try {
     Write-Host "Downloading $Asset from approved host $($uri.Host)..."
-    $response = Invoke-WebRequest -Uri $Url -OutFile $downloadPath -MaximumRedirection 5 -UseBasicParsing
-
-    $finalUri = $null
-    if ($response.BaseResponse -and $response.BaseResponse.ResponseUri) {
-        $finalUri = $response.BaseResponse.ResponseUri
-    } elseif ($response.ResponseUri) {
-        $finalUri = $response.ResponseUri
-    }
-    if ($finalUri -and -not (Test-ApprovedHost ([System.Uri]$finalUri))) {
-        throw "Refusing download redirect to unapproved host: $($finalUri.Host)"
+    $response = $null
+    $inputStream = $null
+    $outputStream = $null
+    try {
+        $response = Get-ApprovedWebResponse $uri
+        $inputStream = $response.GetResponseStream()
+        $outputStream = [System.IO.File]::Open(
+            $downloadPath,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None)
+        $inputStream.CopyTo($outputStream)
+    } finally {
+        if ($outputStream) { $outputStream.Dispose() }
+        if ($inputStream) { $inputStream.Dispose() }
+        if ($response) { $response.Dispose() }
     }
 
     if ($Sha256) {

@@ -19,12 +19,37 @@
       --accent-strong:#287b48;
       --good:#73d99a;
       --warn:#e5b85c;
+      --body-bg:radial-gradient(ellipse at 82% -10%,rgba(45,116,69,.19),transparent 42%),#09110e;
+      --header-bg:rgba(9,17,14,.86);
+      --card-bg:linear-gradient(145deg,rgba(23,37,29,.96),rgba(15,26,20,.96));
+      --inset-bg:#0b1510;
+      --terminal-bg:#08110c;
+      --brand-card-bg:radial-gradient(ellipse at 50% 0,rgba(51,131,75,.18),transparent 65%),linear-gradient(145deg,rgba(23,37,29,.96),rgba(15,26,20,.96));
+    }
+    :root[data-theme="light"] {
+      color-scheme:light;
+      --bg:#edf4ef;
+      --panel:#ffffff;
+      --panel-raised:#f4faf5;
+      --line:#d4e2d7;
+      --text:#17251c;
+      --muted:#607267;
+      --accent:#237a40;
+      --accent-strong:#287b48;
+      --good:#247746;
+      --warn:#9a6900;
+      --body-bg:radial-gradient(ellipse at 82% -10%,rgba(45,116,69,.12),transparent 42%),#edf4ef;
+      --header-bg:rgba(248,252,249,.88);
+      --card-bg:linear-gradient(145deg,rgba(255,255,255,.98),rgba(246,250,247,.98));
+      --inset-bg:#f5faf6;
+      --terminal-bg:#eef5ef;
+      --brand-card-bg:radial-gradient(ellipse at 50% 0,rgba(51,131,75,.12),transparent 65%),linear-gradient(145deg,#fff,#f3f8f4);
     }
     * { box-sizing:border-box; }
     body {
       min-height:100vh;
       margin:0;
-      background:radial-gradient(ellipse at 82% -10%,rgba(45,116,69,.19),transparent 42%),var(--bg);
+      background:var(--body-bg);
       color:var(--text);
       font-family:"Microsoft JhengHei",Segoe UI,sans-serif;
       line-height:1.55;
@@ -39,7 +64,7 @@
       gap:14px;
       padding:0 26px;
       border-bottom:1px solid rgba(145,166,154,.16);
-      background:rgba(9,17,14,.86);
+      background:var(--header-bg);
       backdrop-filter:blur(16px);
     }
     .dot { width:10px; height:10px; flex:none; border-radius:50%; background:var(--warn); box-shadow:0 0 16px var(--warn); }
@@ -51,9 +76,24 @@
       padding:19px;
       border:1px solid var(--line);
       border-radius:16px;
-      background:linear-gradient(145deg,rgba(23,37,29,.96),rgba(15,26,20,.96));
+      background:var(--card-bg);
       box-shadow:0 12px 30px rgba(0,0,0,.13);
+      animation:card-enter .48s both;
+      transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
     }
+    @media (hover:hover) and (pointer:fine) {
+      .card:hover { transform:translateY(-2px); border-color:rgba(139,224,164,.28); box-shadow:0 16px 38px rgba(0,0,0,.18); }
+    }
+    main > aside .card:nth-child(2) { animation-delay:.04s; }
+    main > aside .card:nth-child(3) { animation-delay:.08s; }
+    main > aside .card:nth-child(4) { animation-delay:.12s; }
+    main > aside .card:nth-child(5) { animation-delay:.16s; }
+    main > section > .card:nth-child(2) { animation-delay:.06s; }
+    main > section > .card:nth-child(3) { animation-delay:.12s; }
+    main > section > .card:nth-child(4) { animation-delay:.18s; }
+    main > section > .card:nth-child(5) { animation-delay:.24s; }
+    @keyframes card-enter { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes brand-breathe { 0%,100% { filter:drop-shadow(0 0 0 rgba(115,217,154,0)); } 50% { filter:drop-shadow(0 0 10px rgba(115,217,154,.28)); } }
     .card > :last-child { margin-bottom:0; }
     h1,h2,h3 { margin-top:0; }
     h1 { margin-bottom:0; font-size:17px; font-weight:650; letter-spacing:.01em; }
@@ -103,23 +143,79 @@
     .setup-links a { color:var(--accent); font-size:12px; text-decoration:none; }
     .setup-links a:hover { text-decoration:underline; }
     #setupStatus { min-height:1.5em; }
-    .brand-mark { width:38px; height:38px; flex:none; display:grid; place-items:center; border:2px solid #287b48; border-radius:12px; background:#101b14; color:#9af0b1; font-weight:900; letter-spacing:-1px; box-shadow:inset 0 0 0 5px #17251d,0 0 20px rgba(40,123,72,.12); }
-    .brand-card { text-align:center; padding:23px 18px; background:radial-gradient(ellipse at 50% 0,rgba(51,131,75,.18),transparent 65%),linear-gradient(145deg,rgba(23,37,29,.96),rgba(15,26,20,.96)); }
-    .brand-card .brand-mark { width:84px; height:84px; margin:2px auto 15px; border-radius:24px; font-size:22px; border-width:4px; box-shadow:inset 0 0 0 10px #17251d,0 8px 24px rgba(0,0,0,.23); }
+    .brand-mark { width:42px; height:42px; flex:none; animation:brand-breathe 5s ease-in-out infinite; }
+    .brand-card { text-align:center; padding:23px 18px; background:var(--brand-card-bg); }
+    .brand-card .brand-mark { width:94px; height:94px; margin:0 auto 12px; }
     .brand-card h2 { margin-bottom:9px; }
     .recording { color:#ff938e; border-color:#bf5d5d; }
-    #terminalOutput { min-height:210px; max-height:360px; overflow:auto; white-space:pre-wrap; background:#08110c; color:#a7e8bd; border:1px solid var(--line); border-radius:11px; padding:14px; font:13px/1.6 Consolas,Monaco,monospace; }
+    .recording::before { content:""; width:7px; height:7px; margin-right:7px; border-radius:50%; background:#ff716d; box-shadow:0 0 0 0 rgba(255,113,109,.55); animation:record-pulse 1.5s infinite; }
+    @keyframes record-pulse { 70% { box-shadow:0 0 0 7px rgba(255,113,109,0); } 100% { box-shadow:0 0 0 0 rgba(255,113,109,0); } }
+    #terminalOutput { min-height:210px; max-height:360px; overflow:auto; white-space:pre-wrap; background:var(--terminal-bg); color:#a7e8bd; border:1px solid var(--line); border-radius:11px; padding:14px; font:13px/1.6 Consolas,Monaco,monospace; }
     .terminal-row { display:flex; gap:10px; margin-top:12px; }
     .terminal-row input { font-family:Consolas,Monaco,monospace; }
     .terminal-toolbar { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 10px; }
     .terminal-toolbar button { min-height:32px; padding:5px 10px; font-size:12px; }
     #agentControls { display:grid; gap:8px; margin-top:12px; }
-    .agent-control { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#0b1510; }
+    .agent-control { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--inset-bg); }
     .agent-control-name { min-width:0; overflow-wrap:anywhere; color:var(--text); font-size:13px; }
     .agent-control-meta { color:var(--muted); font-size:11px; }
     .agent-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-    #scriptExplanation,#scriptSource { max-height:320px; overflow:auto; padding:12px; border:1px solid var(--line); border-radius:10px; background:#08110c; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.6 Consolas,Monaco,monospace; }
+    #scriptExplanation,#scriptSource { max-height:320px; overflow:auto; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--terminal-bg); color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.6 Consolas,Monaco,monospace; }
     #scriptSource { max-height:240px; }
+    .logo-symbols { position:absolute; width:0; height:0; overflow:hidden; }
+    #headerTools { display:flex; align-items:center; gap:8px; }
+    #headerTools button { min-height:32px; padding:5px 10px; font-size:12px; white-space:nowrap; }
+    .dot { transition:background .25s ease,box-shadow .25s ease; }
+    .dot.connected { background:var(--good); box-shadow:0 0 12px var(--good); animation:status-breathe 2.6s ease-in-out infinite; }
+    .dot.offline { background:var(--warn); box-shadow:0 0 13px var(--warn); }
+    @keyframes status-breathe { 50% { box-shadow:0 0 4px var(--good); } }
+    .setup-step { transition:transform .18s ease,border-color .18s ease,background .18s ease; }
+    .setup-step:hover { transform:translateX(3px); border-color:rgba(139,224,164,.28); }
+    .chat-card { overflow:hidden; }
+    .chat-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .chat-heading p { margin:0 0 12px; font-size:12px; }
+    .chat-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .chat-actions button { min-height:30px; padding:4px 9px; font-size:12px; }
+    .chat-messages { display:flex; flex-direction:column; gap:14px; min-height:380px; max-height:56vh; overflow:auto; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--terminal-bg); scroll-behavior:smooth; }
+    .chat-empty { display:grid; place-content:center; flex:1; min-height:340px; text-align:center; color:var(--muted); font-size:13px; }
+    .chat-empty-mark { width:48px; height:48px; margin:0 auto 10px; opacity:.72; }
+    .chat-empty p { margin:0; }
+    .chat-message { display:flex; align-items:flex-start; gap:10px; max-width:88%; animation:message-enter .24s ease-out both; }
+    .chat-message.user { align-self:flex-end; flex-direction:row-reverse; }
+    .chat-message.error { align-self:flex-start; }
+    @keyframes message-enter { from { opacity:0; transform:translateY(7px) scale(.99); } to { opacity:1; transform:translateY(0) scale(1); } }
+    .message-avatar { display:grid; place-items:center; width:30px; height:30px; flex:none; border:1px solid var(--line); border-radius:10px; background:var(--panel-raised); color:var(--accent); font-size:11px; font-weight:700; }
+    .chat-message.user .message-avatar { background:#287b48; color:#fff; }
+    .chat-message.error .message-avatar { color:#ff938e; }
+    .message-body { min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:4px 14px 14px; background:var(--card-bg); }
+    .chat-message.user .message-body { border-color:rgba(115,217,154,.24); border-radius:14px 4px 14px 14px; background:rgba(40,123,72,.14); }
+    .chat-message.error .message-body { border-color:rgba(255,113,109,.38); }
+    .message-topline { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:5px; color:var(--muted); font-size:11px; }
+    .message-time { margin-left:auto; color:var(--muted); font-size:10px; }
+    .message-copy { min-height:24px; padding:2px 6px; border:0; background:transparent; color:var(--muted); font-size:11px; }
+    .message-copy:hover:not(:disabled) { color:var(--accent); background:transparent; }
+    .message-text { margin:0; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; }
+    .message-meta { display:block; margin-top:8px; padding-top:7px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
+    .thinking-indicator { display:flex; align-items:center; gap:9px; margin:10px 2px 0; color:var(--muted); font-size:12px; }
+    .thinking-indicator[hidden] { display:none; }
+    .thinking-orb { width:9px; height:9px; border-radius:50%; background:var(--accent); box-shadow:0 0 14px rgba(115,217,154,.6); animation:think-pulse 1.4s ease-in-out infinite; }
+    @keyframes think-pulse { 50% { transform:scale(.62); opacity:.55; } }
+    .thinking-dots { display:inline-flex; gap:3px; }
+    .thinking-dots i { width:4px; height:4px; border-radius:50%; background:var(--accent); animation:dot-hop .8s ease-in-out infinite; }
+    .thinking-dots i:nth-child(2) { animation-delay:.12s; }
+    .thinking-dots i:nth-child(3) { animation-delay:.24s; }
+    @keyframes dot-hop { 50% { transform:translateY(-4px); opacity:.55; } }
+    .prompt-compose { display:flex; align-items:flex-end; gap:9px; margin-top:11px; }
+    .prompt-compose input { min-height:48px; }
+    .prompt-compose button { min-width:102px; min-height:48px; }
+    .chat-hint { margin:7px 2px 0; font-size:11px; }
+    .focus-mode aside { display:none; }
+    .focus-mode main { grid-template-columns:minmax(0,1fr); }
+    .focus-mode main > section { width:min(100%,1080px); margin:0 auto; }
+    :root[data-theme="light"] .header-brand { color:#17251c; }
+    :root[data-theme="light"] .chat-message.user .message-body { background:rgba(40,123,72,.09); }
+    :root[data-theme="light"] #terminalOutput { color:#246a3b; }
+    :root[data-theme="light"] .brand-mark rect:nth-of-type(2) { fill:#101518; }
     @media (max-width:820px) {
       main { grid-template-columns:260px minmax(0,1fr); }
       aside { padding:18px 14px; }
@@ -134,6 +230,11 @@
       aside .card { margin:0; }
       .brand-card { grid-column:1/-1; }
       section { padding:16px 14px; }
+      .chat-heading { display:block; }
+      .chat-actions { justify-content:flex-start; margin-bottom:10px; }
+      .chat-messages { min-height:220px; max-height:55vh; padding:12px; }
+      .chat-empty { min-height:190px; }
+      .chat-message { max-width:100%; }
     }
     @media (max-width:420px) {
       aside { grid-template-columns:minmax(0,1fr); }
@@ -141,25 +242,66 @@
       header { gap:9px; }
       #status { max-width:125px; text-align:right; }
       .terminal-row { align-items:stretch; }
+      header #headerTools button { min-height:30px; padding:4px 7px; font-size:11px; }
+      #focusToggle { display:none; }
+      header h1 { font-size:13px; }
+      header .header-brand { width:34px; height:34px; }
+      #status { max-width:96px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+      .prompt-compose { align-items:stretch; }
+      .prompt-compose button { min-width:76px; }
     }
     @media (prefers-reduced-motion:reduce) {
-      *,*::before,*::after { scroll-behavior:auto !important; transition:none !important; }
+      *,*::before,*::after { scroll-behavior:auto !important; transition:none !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
     }
   </style>
 </head>
 <body>
+  <svg class="logo-symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="pslm-logo" viewBox="0 0 400 400">
+      <defs>
+        <g id="pslm-pixel">
+          <rect x="-6" y="0" width="12" height="14" fill="#3a7d44"/>
+          <rect x="-4.5" y="14" width="9" height="8" fill="#52a862"/>
+          <rect x="-3.5" y="22" width="7" height="22" rx="1" fill="#77d688"/>
+        </g>
+      </defs>
+      <g transform="translate(0,68) scale(1,-1)">
+        <use href="#pslm-pixel" x="116"/><use href="#pslm-pixel" x="140"/><use href="#pslm-pixel" x="164"/><use href="#pslm-pixel" x="188"/>
+        <use href="#pslm-pixel" x="212"/><use href="#pslm-pixel" x="236"/><use href="#pslm-pixel" x="260"/><use href="#pslm-pixel" x="284"/>
+      </g>
+      <g transform="translate(0,332)">
+        <use href="#pslm-pixel" x="116"/><use href="#pslm-pixel" x="140"/><use href="#pslm-pixel" x="164"/><use href="#pslm-pixel" x="188"/>
+        <use href="#pslm-pixel" x="212"/><use href="#pslm-pixel" x="236"/><use href="#pslm-pixel" x="260"/><use href="#pslm-pixel" x="284"/>
+      </g>
+      <g transform="translate(68,0) rotate(90)">
+        <use href="#pslm-pixel" x="116"/><use href="#pslm-pixel" x="140"/><use href="#pslm-pixel" x="164"/><use href="#pslm-pixel" x="188"/>
+        <use href="#pslm-pixel" x="212"/><use href="#pslm-pixel" x="236"/><use href="#pslm-pixel" x="260"/><use href="#pslm-pixel" x="284"/>
+      </g>
+      <g transform="translate(332,0) rotate(-90)">
+        <use href="#pslm-pixel" x="-284"/><use href="#pslm-pixel" x="-260"/><use href="#pslm-pixel" x="-236"/><use href="#pslm-pixel" x="-212"/>
+        <use href="#pslm-pixel" x="-188"/><use href="#pslm-pixel" x="-164"/><use href="#pslm-pixel" x="-140"/><use href="#pslm-pixel" x="-116"/>
+      </g>
+      <rect x="64" y="64" width="272" height="272" rx="44" fill="#1e7e34"/>
+      <rect x="80" y="80" width="240" height="240" rx="30" fill="#101518"/>
+      <text x="200" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-weight="900" font-size="76" fill="#77d688">PSLM</text>
+    </symbol>
+  </svg>
   <header>
-    <div class="brand-mark" aria-label="PSLM official mark">PSLM</div>
+    <svg class="brand-mark header-brand" role="img" aria-label="PSLM 官方標誌" viewBox="0 0 400 400"><use href="#pslm-logo"/></svg>
     <div class="dot" id="dot"></div>
     <h1>PSLM 本機助理</h1>
     <span id="status">Agent 連線檢查中</span>
+    <div id="headerTools">
+      <button type="button" id="focusToggle" aria-pressed="false" title="隱藏側邊欄，專注於主要工作區">專注模式</button>
+      <button type="button" id="themeToggle" aria-label="切換淺色模式">淺色模式</button>
+    </div>
   </header>
   <main>
     <aside>
       <div class="card brand-card">
-        <div class="brand-mark">PSLM</div>
+        <svg class="brand-mark" role="img" aria-label="PSLM 官方標誌" viewBox="0 0 400 400"><use href="#pslm-logo"/></svg>
         <h2>PSLM 本機助理</h2>
-        <span class="badge">官方標誌</span>
+        <span class="badge">本機優先 · 私人運作</span>
       </div>
       <div class="card">
         <h2>硬體模式</h2>
@@ -206,6 +348,37 @@
       </div>
     </aside>
     <section>
+      <div class="card chat-card">
+        <div class="chat-heading">
+          <div>
+            <h2>本機對話</h2>
+            <p>訊息只送往這台電腦的本機模型；最近的聊天紀錄保存在此瀏覽器，不會同步雲端。</p>
+          </div>
+          <div class="chat-actions">
+            <span class="badge" id="chatModelBadge">等待本機模型</span>
+            <button type="button" id="chatClear" disabled>清除對話</button>
+          </div>
+        </div>
+        <div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions">
+          <div class="chat-empty" id="chatEmpty">
+            <svg class="chat-empty-mark" viewBox="0 0 400 400" aria-hidden="true"><use href="#pslm-logo"/></svg>
+            <p>準備好後，輸入問題開始與本機 AI 對話。</p>
+          </div>
+        </div>
+        <div id="thinkingIndicator" class="thinking-indicator" role="status" aria-live="polite" hidden>
+          <span class="thinking-orb" aria-hidden="true"></span>
+          <span>本機模型正在整理回覆</span>
+          <span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+        <div class="prompt-compose">
+          <input id="prompt" aria-label="輸入訊息" autocomplete="off" placeholder="輸入訊息，按 Enter 傳送">
+          <button class="primary" id="send" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            送出
+          </button>
+        </div>
+        <p class="chat-hint">保留最近 12 則訊息作為對話脈絡。按「清除對話」會一併刪除此瀏覽器的本機紀錄。</p>
+      </div>
       <div class="card">
         <h2>TerminalUI｜安全終端</h2>
         <p>只允許列出的唯讀指令；Git 寫入操作需人工核准，不會執行任意 PowerShell 指令。</p>
@@ -222,14 +395,6 @@
           <button class="primary" id="terminalRun">執行</button>
         </div>
         <p style="font-size:12px;">唯讀指令可直接執行；Git 新增、提交與推送需要核准。Shell 運算子、任意執行檔及專案外路徑均會被封鎖。</p>
-      </div>
-      <div class="card">
-        <h2>對話</h2>
-        <textarea id="chat" placeholder="本機模型啟動後即可在此操作…"></textarea>
-        <div style="margin-top:10px; display:flex; gap:8px;">
-          <input id="prompt" placeholder="輸入問題">
-          <button id="send" disabled>送出</button>
-        </div>
       </div>
       <div class="card">
         <h2>Agent 桌面操作</h2>
@@ -276,6 +441,14 @@
     const chooseEngine = document.querySelector('#chooseEngine');
     const chooseModel = document.querySelector('#chooseModel');
     const send = document.querySelector('#send');
+    const promptInput = document.querySelector('#prompt');
+    const chatMessages = document.querySelector('#chatMessages');
+    const chatEmpty = document.querySelector('#chatEmpty');
+    const chatClear = document.querySelector('#chatClear');
+    const chatModelBadge = document.querySelector('#chatModelBadge');
+    const thinkingIndicator = document.querySelector('#thinkingIndicator');
+    const themeToggle = document.querySelector('#themeToggle');
+    const focusToggle = document.querySelector('#focusToggle');
     const recordStart = document.querySelector('#recordStart');
     const recordStop = document.querySelector('#recordStop');
     const recordStatus = document.querySelector('#recordStatus');
@@ -299,6 +472,176 @@
     let activeScriptReviewId = '';
     let apiConnected = false;
     let inferenceConnected = false;
+    let requestInFlight = false;
+    const chatHistory = [];
+    const chatStorageKey = 'pslm-chat-history';
+
+    function setTheme(theme, save = true) {
+      document.documentElement.dataset.theme = theme;
+      themeToggle.textContent = theme === 'dark' ? '淺色模式' : '深色模式';
+      themeToggle.setAttribute('aria-label', theme === 'dark' ? '切換淺色模式' : '切換深色模式');
+      if (save) {
+        try {
+          localStorage.setItem('pslm-theme', theme);
+        } catch (_) {
+          status.textContent = '主題已套用，但此瀏覽器無法儲存偏好。';
+        }
+      }
+    }
+
+    function setFocusMode(enabled, save = true) {
+      document.body.classList.toggle('focus-mode', enabled);
+      focusToggle.setAttribute('aria-pressed', String(enabled));
+      focusToggle.textContent = enabled ? '返回總覽' : '專注模式';
+      if (save) {
+        try {
+          localStorage.setItem('pslm-focus-mode', enabled ? 'true' : 'false');
+        } catch (_) {
+          status.textContent = '專注模式已套用，但無法儲存偏好。';
+        }
+      }
+    }
+
+    try {
+      setTheme(localStorage.getItem('pslm-theme') === 'light' ? 'light' : 'dark', false);
+      setFocusMode(localStorage.getItem('pslm-focus-mode') === 'true', false);
+    } catch (_) {
+      setTheme('dark', false);
+      setFocusMode(false, false);
+      status.textContent = '無法讀取本機偏好設定；已使用預設外觀。';
+    }
+    themeToggle.addEventListener('click', () =>
+      setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+    focusToggle.addEventListener('click', () =>
+      setFocusMode(!document.body.classList.contains('focus-mode')));
+
+    function updateSendState() {
+      send.disabled = !apiConnected || !inferenceConnected || requestInFlight || !promptInput.value.trim();
+    }
+
+    function addChatMessage(role, content, metadata = '', timestamp = Date.now()) {
+      chatEmpty.hidden = true;
+      const article = document.createElement('article');
+      article.className = `chat-message ${role}`;
+      const avatar = document.createElement('span');
+      avatar.className = 'message-avatar';
+      avatar.textContent = role === 'user' ? '你' : role === 'error' ? '!' : 'AI';
+      avatar.setAttribute('aria-hidden', 'true');
+
+      const body = document.createElement('div');
+      body.className = 'message-body';
+      const topline = document.createElement('div');
+      topline.className = 'message-topline';
+      const label = document.createElement('span');
+      label.textContent = role === 'user' ? '你' : role === 'error' ? '連線訊息' : 'PSLM 本機模型';
+      const safeTimestamp = Number.isFinite(timestamp) && Math.abs(timestamp) <= 8640000000000000
+        ? timestamp
+        : Date.now();
+      const date = new Date(safeTimestamp);
+      const time = document.createElement('time');
+      time.className = 'message-time';
+      time.dateTime = date.toISOString();
+      time.textContent = date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      topline.append(label, time);
+      if (role === 'assistant' && navigator.clipboard && navigator.clipboard.writeText) {
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.className = 'message-copy';
+        copy.textContent = '複製';
+        copy.setAttribute('aria-label', '複製這則回覆');
+        copy.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(content);
+            copy.textContent = '已複製';
+            setTimeout(() => { copy.textContent = '複製'; }, 1400);
+          } catch (_) {
+            copy.textContent = '無法複製';
+          }
+        });
+        topline.append(copy);
+      }
+      const text = document.createElement('p');
+      text.className = 'message-text';
+      text.textContent = content;
+      body.append(topline, text);
+      if (metadata) {
+        const meta = document.createElement('span');
+        meta.className = 'message-meta';
+        meta.textContent = metadata;
+        body.append(meta);
+      }
+      article.append(avatar, body);
+      chatMessages.append(article);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      chatClear.disabled = requestInFlight;
+    }
+
+    chatClear.addEventListener('click', () => {
+      if (requestInFlight) return;
+      chatHistory.length = 0;
+      chatMessages.replaceChildren(chatEmpty);
+      chatEmpty.hidden = false;
+      chatClear.disabled = true;
+      try {
+        localStorage.removeItem(chatStorageKey);
+      } catch (_) {
+        status.textContent = '畫面已清除，但瀏覽器無法刪除本機聊天紀錄。';
+      }
+    });
+
+    function saveChatHistory() {
+      try {
+        localStorage.setItem(chatStorageKey, JSON.stringify(chatHistory));
+      } catch (_) {
+        status.textContent = '對話仍可使用，但無法儲存聊天紀錄到本機。';
+      }
+    }
+
+    function restoreChatHistory() {
+      let serialized;
+      try {
+        serialized = localStorage.getItem(chatStorageKey);
+      } catch (_) {
+        status.textContent = '無法讀取此瀏覽器的本機聊天紀錄。';
+        return;
+      }
+      if (!serialized) return;
+
+      let records;
+      try {
+        records = JSON.parse(serialized);
+      } catch (_) {
+        status.textContent = '本機聊天紀錄格式無法讀取；原資料未刪除。';
+        return;
+      }
+      if (!Array.isArray(records)) {
+        status.textContent = '本機聊天紀錄格式不正確；原資料未刪除。';
+        return;
+      }
+
+      const validRecords = records.filter(record =>
+        record &&
+        (record.role === 'user' || record.role === 'assistant') &&
+        typeof record.content === 'string' &&
+        (record.metadata === undefined || typeof record.metadata === 'string'));
+      if (validRecords.length !== records.length) {
+        status.textContent = '部分本機聊天紀錄格式不正確，已略過；原資料未刪除。';
+      }
+      chatHistory.push(...validRecords.slice(-12).map(record => ({
+        role:record.role,
+        content:record.content,
+        metadata:record.metadata || '',
+        createdAt:Number.isFinite(record.createdAt) &&
+          Math.abs(record.createdAt) <= 8640000000000000
+          ? record.createdAt
+          : Date.now()
+      })));
+      for (const record of chatHistory)
+        addChatMessage(record.role, record.content, record.metadata, record.createdAt);
+      chatClear.disabled = chatHistory.length === 0;
+    }
+
+    restoreChatHistory();
 
     async function runTerminalCommand(command) {
       if (!command.trim()) return;
@@ -432,30 +775,60 @@
     refreshStatus();
     setInterval(refreshStatus, 5000);
 
+    promptInput.addEventListener('input', updateSendState);
+    promptInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        if (!send.disabled) send.click();
+      }
+    });
     send.addEventListener('click', async () => {
-      const prompt = document.querySelector('#prompt');
-      if (!prompt.value.trim()) return;
-      const chat = document.querySelector('#chat');
-      chat.value += `\n\n使用者：${prompt.value}`;
-      prompt.disabled = true;
+      const content = promptInput.value.trim();
+      if (!content || requestInFlight) return;
+      const userRecord = {role:'user',content,createdAt:Date.now()};
+      chatHistory.push(userRecord);
+      addChatMessage(userRecord.role, userRecord.content, '', userRecord.createdAt);
+      promptInput.value = '';
+      promptInput.disabled = true;
+      requestInFlight = true;
+      chatClear.disabled = true;
+      thinkingIndicator.hidden = false;
+      chatMessages.setAttribute('aria-busy', 'true');
+      chatModelBadge.textContent = '本機模型思考中';
+      updateSendState();
       try {
         const response = await apiFetch('http://127.0.0.1:8091/completion', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({messages:[{role:'user',content:prompt.value}],temperature:0.7})
+          body:JSON.stringify({
+            messages:chatHistory.slice(-11).map(({role,content}) => ({role,content})),
+            temperature:0.7
+          })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `Agent API 錯誤 (${response.status})`);
-        chat.value += `\n\n助理：${result.choices?.[0]?.message?.content || result.error || '無回應'}`;
-        if (result.pslmAction) {
-          chat.value += `\n\nPSLM 動作：${result.pslmAction.decision}${result.pslmAction.error ? `（${result.pslmAction.error}）` : ''}`;
-        }
+        const answer = result.choices?.[0]?.message?.content || result.error || '本機模型沒有提供回覆。';
+        const action = result.pslmAction
+          ? `PSLM 動作：${result.pslmAction.decision}${result.pslmAction.error ? `（${result.pslmAction.error}）` : ''}`
+          : '';
+        const assistantRecord = {role:'assistant',content:answer,metadata:action,createdAt:Date.now()};
+        chatHistory.push(assistantRecord);
+        addChatMessage(assistantRecord.role,assistantRecord.content,assistantRecord.metadata,assistantRecord.createdAt);
+        if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
+        saveChatHistory();
       } catch (error) {
-        chat.value += `\n\nAgent 錯誤：${error.message || '無法連線。'}`;
+        if (chatHistory[chatHistory.length - 1]?.role === 'user') chatHistory.pop();
+        addChatMessage('error', error.message || '無法連線到本機模型。');
+      } finally {
+        requestInFlight = false;
+        promptInput.disabled = false;
+        chatClear.disabled = chatMessages.querySelector('.chat-message') === null;
+        thinkingIndicator.hidden = true;
+        chatMessages.removeAttribute('aria-busy');
+        chatModelBadge.textContent = inferenceConnected ? '本機模型就緒' : '等待本機模型';
+        updateSendState();
+        promptInput.focus();
       }
-      prompt.disabled = false;
-      prompt.value = '';
-      chat.scrollTop = chat.scrollHeight;
     });
 
     agentScan.addEventListener('click', async () => {
@@ -590,20 +963,18 @@
       } catch (_) {
         inferenceConnected = false;
       }
-      send.disabled = !apiConnected || !inferenceConnected;
+      chatModelBadge.textContent = inferenceConnected ? '本機模型就緒' : '等待本機模型';
+      updateSendState();
       if (!apiConnected) {
-        dot.style.background = 'var(--warn)';
-        dot.style.boxShadow = '0 0 16px var(--warn)';
+        dot.className = 'dot offline';
         status.textContent = 'Agent API 離線 · 請以 Run.bat 開啟';
         agentStatus.textContent = apiToken ? 'Agent API 未連線；請確認 Run.bat 正在執行' : '缺少本機 Token，請以 Run.bat 開啟';
       } else if (!inferenceConnected) {
-        dot.style.background = 'var(--warn)';
-        dot.style.boxShadow = '0 0 16px var(--warn)';
+        dot.className = 'dot offline';
         status.textContent = 'Agent API 已連線 · 模型離線';
         agentStatus.textContent = 'Agent API 已連線；先選擇引擎與 GGUF 模型';
       } else {
-        dot.style.background = 'var(--good)';
-        dot.style.boxShadow = '0 0 12px var(--good)';
+        dot.className = 'dot connected';
         status.textContent = 'Agent 已連線 · 本機模型就緒';
         agentStatus.textContent = 'Agent 已連線，可掃描桌面';
       }

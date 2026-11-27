@@ -2,6 +2,8 @@
 
 **Portable Small Language Model** is a USB-first, zero-install local AI control environment. It is designed to keep executable code, downloaded inference engines, and GGUF models on removable media while providing a private local inference server and an optional desktop automation workflow.
 
+**Current beta: v0.0.5 — source-only; no `.exe` is included.**
+
 Zero-install, air-gapped portable AI assistant and UI Automation click-agent running entirely from a USB drive via native PowerShell and HTML.
 
 PSLM uses PowerShell for hardware detection and process orchestration, a plain HTML control surface for user interaction, a local `llama-server` process for inference, and a restricted automation API for preview and approval-driven desktop actions.
@@ -64,6 +66,8 @@ CPU mode requires a CPU-compatible engine and a model such as a 1.5B–4B Q4_K_M
 6. To change computers, reconnect the storage and reselect files if a saved external path is no longer available.
 
 Selections on the same drive as PSLM are saved as relative paths so they remain portable when a USB drive letter changes. Selections on another drive use absolute paths. Choices are saved locally in `asset_paths.json`, which is excluded from Git. Existing files in `bin_cpu`, `bin_cuda`, and `models/cpu-model.gguf` or `models/cuda-model.gguf` continue to work as defaults.
+
+The UI opens on an app-style chat view with message bubbles, timestamps, and an animated local-model thinking state. Up to 12 recent messages are stored in the browser's local storage on this computer and reused as chat context; **清除對話** removes both the visible transcript and its local record. Chat is not synchronized to a cloud service. Light/dark themes and a focused workspace mode are also available.
 
 ### Review a PowerShell script before running it
 
